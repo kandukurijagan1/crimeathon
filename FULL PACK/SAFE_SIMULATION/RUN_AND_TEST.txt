@@ -1,0 +1,15 @@
+SAFE LOCAL MOCK API — QUICK START
+
+Requirements: Python 3.9+; standard library only. Keep the server on 127.0.0.1.
+
+1) Open a terminal in this folder.
+2) Start hardened mode: python mock_api_server.py --mode hardened
+3) In a second terminal, run: python test_hardened_api.py
+4) Stop the server with Ctrl+C.
+
+Optional offense-track demonstration: stop the server, then run python mock_api_server.py --mode vulnerable. In this intentionally weak mode, the fake demo token has broad access. Use only synthetic records and localhost. The supplied test harness expects hardened behavior, so use manual curl/PowerShell requests or write separate tests for vulnerable mode.
+
+Example PowerShell request to vulnerable mode:
+Invoke-RestMethod http://127.0.0.1:8765/v1/learners/search -Headers @{Authorization='Bearer demo-rollcall-token'; 'X-Simulated-Source-IP'='203.0.113.77'}
+
+This is a deliberately simplified training mock, not a production security implementation. The simulated source header is for repeatable lab tests only and must never be trusted in a real deployment.

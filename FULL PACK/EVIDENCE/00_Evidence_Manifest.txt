@@ -1,0 +1,22 @@
+CRIMEATHON’26 — CASE NS-26-014
+PARTICIPANT EVIDENCE MANIFEST
+
+All data is synthetic. No real person, company, account, credential, domain, or system is represented.
+
+Evidence inventory:
+E01_Authentication_Logs.csv — staff and service-identity authentication events; timestamps IST.
+E02_ClassBridge_Audit_Logs.csv — learner portal actions and record counts; timestamps IST.
+E03_API_Gateway_Logs.csv — API requests, client/key identifiers, endpoints and returned record counts; timestamps IST.
+E04_CampusVault_Audit_Logs.csv — cloud object listing and downloads; timestamps IST.
+E05_Integration_Register.csv — approved integrations, permissions, expiry and network restrictions.
+E06_HelpDesk_Tickets.csv — support communications and operational reports.
+E07_Staff_and_Service_Account_Register.csv — employee and service identity context.
+E08_Information_Security_Policy_Extract.txt — internal security requirements.
+E09_Network_Observations.csv — network observations related to the integration activity.
+E10_Vendor_And_Internal_Communications.json — vendor and internal communications.
+E11_Additional_Configuration_Audit.csv — integration configuration and export-job audit events.
+E12_Incident_Response_Note.txt — incident response status and known uncertainties.
+
+Time handling: All timestamp fields include +05:30 and are India Standard Time (IST). No clock correction is required.
+
+Important: The evidence is intentionally incomplete. A successful login or API request does not, by itself, prove who physically operated the system. Distinguish observed events from attribution and assumptions.

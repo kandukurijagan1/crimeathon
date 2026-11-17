@@ -1,0 +1,3 @@
+event_id,timestamp,source_ip,network_label,note
+N001,2026-10-12T03:15:55+05:30,203.0.113.77,unrecognized external source,First observed connection using the RollCall production client identifier.
+N002,2026-10-12T03:25:00+05:30,10.10.4.12,Northstar internal integration subnet,Scheduled connector resumed normal attendance-only requests.

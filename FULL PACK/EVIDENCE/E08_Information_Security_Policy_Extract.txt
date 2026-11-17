@@ -1,0 +1,12 @@
+NORTHSTAR SKILLS ACADEMY — INFORMATION SECURITY STANDARD (EXTRACT)
+Document: NS-SEC-04 | Version 2.1 | Effective: 1 April 2026
+
+1. Service credentials must be stored in the approved secrets vault. Credentials must not be placed in support tickets, screenshots, email, source code, or shared documents.
+2. Third-party integrations must receive only the permissions required for their business function.
+3. Production service credentials must have an expiry or documented rotation schedule. Exceptions require approval by the IT Administrator.
+4. Vendor integrations should be restricted to documented source networks where technically supported.
+5. Bulk exports of learner personal information require an approved business request and must be logged.
+6. Unusual access volumes or access from a new source network should be reviewed by IT Operations.
+7. Accounts belonging to former staff must be disabled on or before the employee's last working day.
+
+This extract is fictional and applies only to the Northstar exercise environment.

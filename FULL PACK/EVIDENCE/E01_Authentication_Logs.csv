@@ -1,0 +1,17 @@
+event_id,timestamp,identity,source_ip,result,mfa,device
+A001,2026-10-05T08:41:00+05:30,ananya.r,198.51.100.21,SUCCESS,MFA,managed-or-registered
+A002,2026-10-05T09:02:00+05:30,rahul.k,198.51.100.21,SUCCESS,MFA,managed-or-registered
+A003,2026-10-06T02:01:10+05:30,svc_rollcall,10.10.4.12,TOKEN_AUTH,N/A,known-service
+A004,2026-10-07T02:01:14+05:30,svc_rollcall,10.10.4.12,TOKEN_AUTH,N/A,known-service
+A005,2026-10-08T18:47:02+05:30,ananya.r,198.51.100.21,SUCCESS,MFA,managed-or-registered
+A006,2026-10-09T09:13:44+05:30,former.ajay,10.10.8.44,SUCCESS,MFA,managed-or-registered
+A007,2026-10-09T09:19:02+05:30,former.ajay,10.10.8.44,DENIED,MFA,managed-or-registered
+A008,2026-10-10T02:01:08+05:30,svc_rollcall,10.10.4.12,TOKEN_AUTH,N/A,known-service
+A009,2026-10-11T11:22:00+05:30,meera.s,203.0.113.18,SUCCESS,MFA,managed-or-registered
+A010,2026-10-12T02:01:06+05:30,svc_rollcall,10.10.4.12,TOKEN_AUTH,N/A,known-service
+A011,2026-10-12T03:16:32+05:30,svc_rollcall,203.0.113.77,TOKEN_AUTH,N/A,known-service
+A012,2026-10-12T03:17:04+05:30,svc_rollcall,203.0.113.77,TOKEN_AUTH,N/A,known-service
+A013,2026-10-12T03:19:48+05:30,svc_rollcall,203.0.113.77,TOKEN_AUTH,N/A,known-service
+A014,2026-10-12T10:04:10+05:30,ananya.r,198.51.100.21,SUCCESS,MFA,managed-or-registered
+A015,2026-10-13T02:01:09+05:30,svc_rollcall,10.10.4.12,TOKEN_AUTH,N/A,known-service
+A016,2026-10-14T02:01:12+05:30,svc_rollcall,10.10.4.12,TOKEN_AUTH,N/A,known-service

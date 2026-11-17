@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SENTRIX SHIELD — CRIMEATHON'26 Problem Statement</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 12mm 14mm;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1a202c;
+    background: #ffffff;
+    line-height: 1.35;
+    font-size: 10.5pt;
+  }
+  .header-box {
+    border-bottom: 2.5px solid #0066cc;
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .title {
+    font-size: 15pt;
+    font-weight: 800;
+    color: #0d1b2a;
+    letter-spacing: -0.3px;
+  }
+  .subtitle {
+    font-size: 9pt;
+    font-weight: 600;
+    color: #0066cc;
+    margin-top: 2px;
+  }
+  .meta-tags {
+    text-align: right;
+    font-size: 8.5pt;
+    color: #4a5568;
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 8pt;
+  }
+  .tag-defense { background: #e6fffa; color: #007a5e; border: 1px solid #38b2ac; }
+  .tag-team { background: #ebf8ff; color: #2b6cb0; border: 1px solid #63b3ed; }
+  
+  h3 {
+    font-size: 10.5pt;
+    font-weight: 700;
+    color: #1e3a8a;
+    margin-top: 7px;
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    border-left: 3.5px solid #2563eb;
+    padding-left: 6px;
+  }
+  p {
+    font-size: 9.3pt;
+    color: #2d3748;
+    text-align: justify;
+    margin-bottom: 4px;
+  }
+  ul {
+    margin-left: 16px;
+    margin-bottom: 4px;
+    font-size: 9.2pt;
+    color: #2d3748;
+  }
+  li { margin-bottom: 2px; }
+  strong { color: #0f172a; }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4px 0 6px 0;
+    font-size: 8.4pt;
+  }
+  th {
+    background: #f1f5f9;
+    color: #1e293b;
+    font-weight: 700;
+    padding: 3.5px 5px;
+    text-align: left;
+    border: 1px solid #cbd5e1;
+  }
+  td {
+    padding: 3px 5px;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+  }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .code {
+    font-family: "Courier New", Courier, monospace;
+    font-weight: bold;
+    color: #0369a1;
+  }
+  .footer {
+    margin-top: 8px;
+    padding-top: 4px;
+    border-top: 1px solid #cbd5e1;
+    font-size: 8pt;
+    color: #64748b;
+    display: flex;
+    justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+
+<div class="header-box">
+  <div>
+    <div class="title">SENTRIX SHIELD: Security Monitoring & Incident Response</div>
+    <div class="subtitle">CRIMEATHON’26 Problem Statement — Case NS-26-014 (Northstar Investigation)</div>
+  </div>
+  <div class="meta-tags">
+    <span class="tag tag-defense">TRACK: DEFENSE</span>
+    <span class="tag tag-team">TEAM: SENTRIX (SIMATS)</span>
+  </div>
+</div>
+
+<h3>1. Problem Identification</h3>
+<p>
+  On <strong>12 October 2026</strong>, Northstar Skills Academy experienced a severe data exfiltration incident compromising <strong>2,300 active learner profiles</strong> (486 KB). A third-party attendance service identity (<span class="code">svc_rollcall</span> / <span class="code">rc-prod-01</span>) was used from an unrecognized external IP (<span class="code">203.0.113.77</span>) to read integration secrets, execute unauthorized API search queries, and download learner archives from CampusVault. Root failures include: unrotated/unexpiring credentials (14+ months), excessive permissions assigned to the attendance connector, lack of source-IP whitelisting, unredacted credentials exposed in a support ticket screenshot, and absent real-time anomaly alerting.
+</p>
+
+<h3>2. Supporting Evidence & Correlated Event Cross-Reference</h3>
+<table>
+  <thead>
+    <tr>
+      <th style="width: 22%;">Evidence File</th>
+      <th style="width: 20%;">Key Record IDs</th>
+      <th style="width: 18%;">Timestamp (IST)</th>
+      <th>Observed Forensic Finding</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>E01: Auth Logs</strong></td>
+      <td><span class="code">A011, A012, A013</span></td>
+      <td>12-Oct 03:16–03:19</td>
+      <td>Service identity <span class="code">svc_rollcall</span> authenticated via token from external IP <span class="code">203.0.113.77</span>.</td>
+    </tr>
+    <tr>
+      <td><strong>E11: Config Audit</strong></td>
+      <td><span class="code">CHG-882, CHG-883</span></td>
+      <td>12-Oct 03:16:35</td>
+      <td>Read of integration settings (<span class="code">credential_config_read</span>); export job created at 03:17:30.</td>
+    </tr>
+    <tr>
+      <td><strong>E02 &amp; E03: Logs</strong></td>
+      <td><span class="code">P003-P006, R003-R006</span></td>
+      <td>12-Oct 03:16–03:19</td>
+      <td>Queried 2,300 learners, invoked <span class="code">/v1/learners/export</span> (200 OK), pulled all attendance data.</td>
+    </tr>
+    <tr>
+      <td><strong>E04: CampusVault</strong></td>
+      <td><span class="code">C002, C003, C004</span></td>
+      <td>12-Oct 03:20–03:24</td>
+      <td>Listed and downloaded <span class="code">learners-20261012.csv</span> (486,200 bytes) twice to external IP.</td>
+    </tr>
+    <tr>
+      <td><strong>E05: Integration Reg.</strong></td>
+      <td><span class="code">INT-01</span></td>
+      <td>Active (04-Mar)</td>
+      <td>Excessive scopes (<span class="code">learner.export</span>), <span class="code">expires: never</span>, IP restriction: <span class="code">not configured</span>.</td>
+    </tr>
+    <tr>
+      <td><strong>E06: HelpDesk</strong></td>
+      <td><span class="code">HD-1058, HD-1069</span></td>
+      <td>09-Oct &amp; 12-Oct</td>
+      <td>Ticket <span class="code">HD-1058</span> archived unredacted config screenshot; <span class="code">HD-1069</span> logged surprise export.</td>
+    </tr>
+    <tr>
+      <td><strong>E08 &amp; E09: Policy/Net</strong></td>
+      <td><span class="code">NS-SEC-04, N001</span></td>
+      <td>12-Oct 03:15:55</td>
+      <td>Violated Rules 1, 2, 3, 5; <span class="code">N001</span> flagged first external connection using RollCall client.</td>
+    </tr>
+    <tr>
+      <td><strong>E10: Vendor Comms</strong></td>
+      <td><span class="code">VND-221</span></td>
+      <td>13-Oct 12:30</td>
+      <td>Vendor confirmed no export was planned and internal connector (<span class="code">10.10.4.12</span>) was inactive.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>3. Confirmed Observations vs. Assumptions &amp; Unknowns</h3>
+<ul>
+  <li><strong>Confirmed (Direct Log Evidence):</strong> API key <span class="code">rc-prod-01</span> was utilized from external IP <span class="code">203.0.113.77</span> to read configuration (<span class="code">CHG-882</span>), trigger a bulk export (<span class="code">R004</span>), and download 2,300 learner records from CampusVault (<span class="code">C003, C004</span>). No rotation or IP boundary existed (<span class="code">INT-01</span>).</li>
+  <li><strong>Strongly Supported:</strong> Credential compromised via unredacted configuration screenshot in ticket <span class="code">HD-1058</span>.</li>
+  <li><strong>Unknowns / Excluded Claims:</strong> Physical identity of the human operator behind <span class="code">203.0.113.77</span> and whether exfiltrated records were distributed onward to third parties.</li>
+</ul>
+
+<h3>4. Technical &amp; Business Impact</h3>
+<p>
+  <strong>Technical:</strong> Exfiltration of 2,300 learner PII records; degradation of ClassBridge portal access; total bypass of access controls.<br>
+  <strong>Business &amp; Legal:</strong> Major liability under Indian DPDP Act; severe reputational damage to Northstar Academy; breach of vendor SLA and trust.
+</p>
+
+<h3>5. Proposed Scope &amp; Intended Outcome</h3>
+<p>
+  <strong>Scope:</strong> Implement and validate <strong>SENTRIX SHIELD</strong> across ClassBridge, CampusVault, and RollCall Connect service identities in an authorized local mock environment.<br>
+  <strong>Intended Outcome:</strong> Eliminate external API access via IP allowlisting, strictly enforce least-privilege role boundaries (blocking bulk exports), automate 90-day credential rotation, and provide real-time SIEM anomaly detection with sub-second alert response.
+</p>
+
+<h3>6. Selected Track (DEFENSE) &amp; Technical Solution</h3>
+<p>
+  <strong>SENTRIX SHIELD</strong> delivers a four-pillar defense architecture:
+</p>
+<ul>
+  <li><strong>1. Real-Time Telemetry &amp; SIEM Correlation:</strong> Aggregates authentication, gateway, and cloud audit logs to detect off-subnet logins, off-hours access, and abnormal query velocity.</li>
+  <li><strong>2. Zero-Trust Hardened API Gateway:</strong> Restricts connections to approved subnet (<span class="code">10.10.4.12</span>), limits service account scopes strictly to <span class="code">attendance.read</span>, and returns <span class="code">403 Forbidden</span> on unauthorized paths.</li>
+  <li><strong>3. Credential Lifecycle &amp; Secret Vault:</strong> Replaces perpetual keys with short-lived tokens, enforcing 90-day automated rotation and instant one-click revocation.</li>
+  <li><strong>4. Interactive Incident Response Dashboard:</strong> Full-featured web UI providing live threat scoring, evidence board, visual timeline, attack simulation, and verification test reporting.</li>
+</ul>
+
+<div class="footer">
+  <span>CRIMEATHON’26 — SIMATS Selection Round</span>
+  <span>Defense Track Submission | Team SENTRIX</span>
+  <span>Page 1 of 1 (Strict Compliance)</span>
+</div>
+
+</body>
+</html>

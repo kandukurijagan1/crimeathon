@@ -1,0 +1,5 @@
+ticket_id,created,requester,subject,body,status,owner
+HD-1041,2026-10-07T11:20:00+05:30,vendor.support@rollcall.example,Attendance sync delay,Please confirm the normal sync window. We will review the connector logs.,closed,it.ops
+HD-1058,2026-10-09T15:42:00+05:30,ananya.r,RollCall API troubleshooting,Vendor asked for the integration client identifier and a screenshot of the configuration page. Screenshot attachment listed in ticket archive.,closed,it.ops
+HD-1062,2026-10-11T16:08:00+05:30,vendor.support@rollcall.example,Planned connector maintenance,We may perform connector maintenance on 12 October. No bulk learner export is planned. Source IP ranges are unchanged.,closed,it.ops
+HD-1069,2026-10-12T09:15:00+05:30,finance.team,Unexpected learner export,A learner export appears in CampusVault. Finance did not request this report. Please verify whether this was part of the attendance sync.,open,it.ops

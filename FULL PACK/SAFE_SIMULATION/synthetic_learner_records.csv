@@ -1,0 +1,13 @@
+learner_id,name,course,attendance_pct,email
+NSL-1001,Aarav Demo,Network Basics,92,aarav.demo@example.invalid
+NSL-1002,Diya Sample,Python Fundamentals,88,diya.sample@example.invalid
+NSL-1003,Ishaan Test,Network Basics,76,ishaan.test@example.invalid
+NSL-1004,Mira Example,Linux Essentials,95,mira.example@example.invalid
+NSL-1005,Kabir Mock,Python Fundamentals,81,kabir.mock@example.invalid
+NSL-1006,Tara Fiction,Cloud Security,89,tara.fiction@example.invalid
+NSL-1007,Neil Placeholder,Linux Essentials,67,neil.placeholder@example.invalid
+NSL-1008,Riya Training,Cloud Security,98,riya.training@example.invalid
+NSL-1009,Dev Example,Network Basics,84,dev.example@example.invalid
+NSL-1010,Sara Sample,Python Fundamentals,91,sara.sample@example.invalid
+NSL-1011,Om Demo,Linux Essentials,73,om.demo@example.invalid
+NSL-1012,Leah Test,Cloud Security,86,leah.test@example.invalid

@@ -1,0 +1,12 @@
+TEAM INVESTIGATION WORKSHEET — CASE NS-26-014
+
+Team ID: __________________________  Team members: ______________________________
+Selected track: OFFENSE / DEFENSE
+
+1. Initial observations: What events appear unusual? Cite evidence and event IDs.
+2. Timeline: Build a timeline with timestamps and timezone. Explain how records correlate.
+3. Hypotheses: State at least two plausible explanations. Include supporting, contradicting, and missing evidence.
+4. ONE-PAGE PROBLEM STATEMENT: Define the problem, scope, evidence, impact, uncertainties, and selected track.
+5. Solution plan: What will you build or test? What will success look like?
+6. Validation: List test cases, expected outcomes, actual results, and limitations.
+7. Recommendations: What should the fictional organization do next?

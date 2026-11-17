@@ -1,0 +1,9 @@
+request_id,timestamp,client_id,api_key_id,source_ip,endpoint,method,status,records_returned
+R001,2026-10-10T02:01:19+05:30,rollcall-prod,rc-prod-01,10.10.4.12,/v1/attendance,GET,200,240
+R002,2026-10-11T02:01:17+05:30,rollcall-prod,rc-prod-01,10.10.4.12,/v1/attendance,GET,200,238
+R003,2026-10-12T03:16:40+05:30,rollcall-prod,rc-prod-01,203.0.113.77,/v1/learners/search,GET,200,2300
+R004,2026-10-12T03:17:09+05:30,rollcall-prod,rc-prod-01,203.0.113.77,/v1/learners/export,POST,200,2300
+R005,2026-10-12T03:18:50+05:30,rollcall-prod,rc-prod-01,203.0.113.77,/v1/courses,GET,200,42
+R006,2026-10-12T03:19:20+05:30,rollcall-prod,rc-prod-01,203.0.113.77,/v1/attendance/all,GET,200,2300
+R007,2026-10-12T03:22:00+05:30,staff-portal,staff-web,198.51.100.21,/v1/learners/search,GET,200,32
+R008,2026-10-13T02:01:19+05:30,rollcall-prod,rc-prod-01,10.10.4.12,/v1/attendance,GET,200,241

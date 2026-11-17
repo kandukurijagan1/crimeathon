@@ -1,0 +1,19 @@
+LOCAL MOCK API — SAFE SIMULATION ONLY
+This is a specification for a mock service teams may implement locally. It is not a real Northstar service.
+
+Suggested endpoints:
+GET /v1/attendance
+  Returns attendance-only records for the integration's normal purpose.
+GET /v1/learners/search
+  Returns learner profile metadata. A secure design should require an authorized role and limit returned fields.
+POST /v1/learners/export
+  Simulates a bulk export. A secure design should require explicit approval, log the request, and enforce a record-count limit.
+
+Suggested test cases:
+1. Valid attendance-only request from an approved test client.
+2. Attempt to search learner profiles using an attendance-only role.
+3. Attempt to export more than the configured record limit.
+4. Attempt a request from an unapproved source address.
+5. Repeated requests in a short time window.
+
+Use only synthetic_learner_records.csv. Do not connect this exercise to any real endpoint or network.

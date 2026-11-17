@@ -1,0 +1,16 @@
+[
+  {
+    "message_id": "VND-221",
+    "sent": "2026-10-13T12:30:00+05:30",
+    "sender": "security@rollcall.example",
+    "subject": "Connector maintenance clarification",
+    "body": "Our team performed routine connector maintenance on 12 October. We did not plan a bulk learner export. We have no record of a production change originating from our documented Northstar connector node 10.10.4.12. We are reviewing whether a credential or configuration was exposed."
+  },
+  {
+    "message_id": "INT-REQ-18",
+    "sent": "2026-10-13T14:00:00+05:30",
+    "sender": "it.ops@northstar.example",
+    "subject": "Credential review request",
+    "body": "Please confirm the credential identifier, approved source networks, permissions, and last rotation date for the production integration. Do not send the secret value by email."
+  }
+]

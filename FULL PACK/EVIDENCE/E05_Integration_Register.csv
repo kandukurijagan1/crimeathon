@@ -1,0 +1,3 @@
+integration_id,vendor,client_id,service_identity,api_key_id,permissions,created,expires,ip_restriction,owner,status
+INT-01,RollCall Connect,rollcall-prod,svc_rollcall,rc-prod-01,attendance.read; learner.search; learner.export; course.read,2026-03-04,never,not configured,IT Operations,active
+INT-02,CampusVault Reports,finance-report,finance.report,vault-fin-02,monthly-report.read,2026-04-11,2027-04-11,198.51.100.0/24,Finance,active

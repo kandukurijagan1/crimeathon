@@ -1,0 +1,10 @@
+SUPPLEMENTARY INCIDENT RESPONSE NOTE
+
+Northstar IT has confirmed that the production integration credential was not scheduled for rotation during October. The current register shows no expiry. The vendor has not confirmed the credential was stolen; it has stated that exposure is one possibility under review.
+
+The additional configuration audit records a read of the integration settings shortly before the unusual API activity. The log does not show the secret value, the person who obtained it, or where it may have been copied.
+
+Teams should update their conclusions and clearly separate:
+1. What the logs directly show.
+2. What is strongly supported.
+3. What remains unknown.
