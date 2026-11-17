@@ -822,6 +822,10 @@ footer {
     </div>
   </div>
   <div class="header-controls">
+    <div class="status-badge" style="background:rgba(16,185,129,0.15);border:1px solid #10b981;color:#10b981;">
+      <span class="live-dot" style="background:#10b981;"></span>
+      AUTH: SOC_ADMIN (RBAC: ADMIN)
+    </div>
     <div class="status-badge">
       <span class="live-dot"></span>
       ZERO-TRUST ACTIVE
@@ -843,7 +847,7 @@ footer {
   <button data-tab="anomaly">🧠 AI &amp; SIEM Engine</button>
   <button data-tab="defense">🔒 Zero-Trust Controls</button>
   <button data-tab="simulate">⚔️ Attack Kill-Chain</button>
-  <button data-tab="testlab">🧪 Automated Test Lab (60/60 PASS)</button>
+  <button data-tab="testlab">🧪 Automated Test Lab (63/63 PASS)</button>
 </nav>
 
 <!-- MAIN APP BODY -->
@@ -1188,7 +1192,7 @@ footer {
       <div class="killchain-stage" id="stage2">
         <div class="stage-icon">⚙️</div>
         <div class="stage-name">2. Config Read</div>
-        <div class="stage-desc">Read of integration settings (CHG-882; plaintext secrets unverified)</div>
+        <div class="stage-desc">Read of integration settings (CHG-882; secret exposure unverified)</div>
         <div class="stage-defense-pill">Vault Encryption &amp; JIT</div>
       </div>
       <div class="killchain-stage" id="stage3">
@@ -1222,7 +1226,7 @@ footer {
 
 
   <!-- ========================================================================
-       TAB 7: AUTOMATED TEST LAB (60/60 PASSING)
+       TAB 7: AUTOMATED TEST LAB (63/63 PASSING)
        ======================================================================== -->
   <section id="tab-testlab" class="tab-pane">
     <div class="glass" style="padding:24px;margin-bottom:24px;">
@@ -1298,6 +1302,24 @@ Click "Run 33 Automated Tests" above to execute the verification suite in real t
      INTERACTIVE JAVASCRIPT CONTROLLER
      ========================================================================== -->
 <script>
+// Sentinel Zero-Trust API Client Middleware: Automatically signs requests with authenticated Bearer token
+const SENTRIX_AUTH_TOKEN = 'sentrix-admin-token-2026-auth';
+const _nativeFetch = window.fetch;
+window.fetch = function(url, options = {}) {
+  options = options || {};
+  options.headers = options.headers || {};
+  if (typeof options.headers === 'object' && !(options.headers instanceof Headers)) {
+    if (!options.headers['Authorization']) {
+      options.headers['Authorization'] = `Bearer ${SENTRIX_AUTH_TOKEN}`;
+    }
+  } else if (options.headers instanceof Headers) {
+    if (!options.headers.has('Authorization')) {
+      options.headers.set('Authorization', `Bearer ${SENTRIX_AUTH_TOKEN}`);
+    }
+  }
+  return _nativeFetch(url, options);
+};
+
 // Web Audio Synthesizer for High-Tech Sound FX
 let sfxEnabled = true;
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1802,11 +1824,12 @@ document.getElementById('rotateTokenBtn').addEventListener('click', async () => 
     sfxSuccess();
     out.innerHTML = `
       <strong>✔ [SIMULATED DEMONSTRATION] CREDENTIAL ROTATION WORKFLOW</strong><br>
+      <span style="color:var(--neon-yellow);font-weight:bold;">[SIMULATED WORKFLOW ONLY — NO REAL CREDENTIALS ALTERED]</span><br>
       Account: <code>${data.account}</code><br>
       Mock New Token ID: <code>${data.mock_new_credential_id || data.new_credential_id}</code><br>
       Issued At: ${data.rotated_at}<br>
       Policy Rotation Schedule: 90 Days (Enforced)<br>
-      <em style="color:var(--neon-yellow);">Notice: ${data.notice || 'Simulated demonstration only. No live HashiCorp Vault is connected.'}</em>
+      <em style="color:var(--text-dim);font-size:11px;">Notice: ${data.notice || 'Simulated demonstration only. No live HashiCorp Vault is connected.'}</em>
     `;
     showToast(`Simulated Token Rotation for ${account} completed`, 'success');
   } catch (e) {

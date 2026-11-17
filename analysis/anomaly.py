@@ -28,7 +28,6 @@ APPROVED_INTERNAL_IPS = {
     "127.0.0.1",        # Local loopback test environment
 }
 
-EXTERNAL_ATTACKER_IP = "203.0.113.77"
 UNAUTHORIZED_EXTERNAL_IP = "203.0.113.77"
 NORMAL_ATTENDANCE_LIMIT = 250
 
@@ -155,7 +154,7 @@ def detect_config_harvesting():
             "reason_for_flagging": (
                 "Event CHG-882 records svc_rollcall reading integration-settings/rollcall-prod from external IP "
                 f"{UNAUTHORIZED_EXTERNAL_IP} at 03:16:35 IST, occurring seconds prior to mass learner query (R003) and export (R004). "
-                "Note: Log CHG-882 confirms configuration read; whether plaintext secrets were exposed remains unverified in evidence."
+                "Note: Log CHG-882 confirms configuration read; whether secrets were stored unencrypted or exposed remains unverified in evidence."
             ),
             "confidence_classification": "CONFIRMED OBSERVATION",
             "recommended_defensive_action": (

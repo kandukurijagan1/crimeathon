@@ -62,9 +62,11 @@ def log_test(name: str, passed: bool, detail: str = ""):
         print(f"  [{RED}FAIL{RESET}] {name} {YELLOW}{detail}{RESET}")
 
 
-def api_call(url, method="GET", headers=None, body=None):
+def api_call(url, method="GET", headers=None, body=None, auth=True):
     """Helper to make HTTP calls to local Flask server."""
     req_headers = headers.copy() if headers else {}
+    if auth and "Authorization" not in req_headers:
+        req_headers["Authorization"] = f"Bearer {ADMIN_TOKEN}"
     data = None
     if body is not None:
         data = json.dumps(body).encode("utf-8")
@@ -351,19 +353,31 @@ def test_cat15_report_generation():
 # =============================================================================
 def test_cat16_authentication_middleware():
     print(f"\n{BOLD}=== 16. REAL FLASK API AUTHENTICATION MIDDLEWARE (NEGATIVE TESTS) ==={RESET}")
-    # A. Unauthenticated call to /api/export-report
-    status, body, _ = api_call("http://127.0.0.1:5000/api/export-report")
+    # A. Unauthenticated call to /api/dashboard
+    status, body, _ = api_call("http://127.0.0.1:5000/api/dashboard", auth=False)
+    log_test("Missing Token to /api/dashboard Rejected (HTTP 401)", status == 401, f"Status: {status}")
+
+    # B. Unauthenticated call to /api/logs
+    status, body, _ = api_call("http://127.0.0.1:5000/api/logs", auth=False)
+    log_test("Missing Token to /api/logs Rejected (HTTP 401)", status == 401, f"Status: {status}")
+
+    # C. Unauthenticated call to /api/credential-audit
+    status, body, _ = api_call("http://127.0.0.1:5000/api/credential-audit", auth=False)
+    log_test("Missing Token to /api/credential-audit Rejected (HTTP 401)", status == 401, f"Status: {status}")
+
+    # D. Unauthenticated call to /api/export-report
+    status, body, _ = api_call("http://127.0.0.1:5000/api/export-report", auth=False)
     log_test("Missing Token to /api/export-report Rejected (HTTP 401)", status == 401, f"Status: {status}")
 
-    # B. Invalid token call to /api/export-report
+    # E. Invalid token call to /api/export-report
     status, body, _ = api_call("http://127.0.0.1:5000/api/export-report", headers={"Authorization": "Bearer invalid-token-xyz"})
     log_test("Invalid Token to /api/export-report Rejected (HTTP 401)", status == 401, f"Status: {status}")
 
-    # C. Unauthenticated call to /api/rotate-credential
-    status, body, _ = api_call("http://127.0.0.1:5000/api/rotate-credential", method="POST", body={"account": "svc_rollcall"})
+    # F. Unauthenticated call to /api/rotate-credential
+    status, body, _ = api_call("http://127.0.0.1:5000/api/rotate-credential", method="POST", body={"account": "svc_rollcall"}, auth=False)
     log_test("Unauthenticated Credential Rotation Rejected (HTTP 401)", status == 401, f"Status: {status}")
 
-    # D. Valid Bearer Token Authenticated Successfully
+    # G. Valid Bearer Token Authenticated Successfully
     status, body, _ = api_call("http://127.0.0.1:5000/api/export-report", headers={"Authorization": f"Bearer {ADMIN_TOKEN}"})
     log_test("Valid Bearer Token Authenticated Successfully (HTTP 200)", status == 200, f"Status: {status}")
 
@@ -427,7 +441,7 @@ def test_cat19_attack_simulation_alignment():
     steps = body.get("steps", [])
     raw_str = json.dumps(steps)
     
-    log_test("No Unsupported Claim of Plaintext Secret Exposure", "secrets exposed in plaintext" not in raw_str.lower())
+    log_test("No Unsupported Claim of Plaintext Secret Exposure", "secrets exposed in plaintext" not in raw_str.lower() and "plaintext" not in raw_str.lower())
     log_test("No Unsupported Claim of 300+ API Calls", "300+" not in raw_str and "312" not in raw_str)
     log_test("Distinguishes Confirmed Events from Hypothetical Simulation", any(s.get("type") == "CONFIRMED_OBSERVATION" for s in steps) and any(s.get("type") == "HYPOTHETICAL_SIMULATION" for s in steps))
     log_test("Distinguishes API Export Job Creation from Cloud Download", any("export job" in s.get("action", "").lower() for s in steps) and any("download" in s.get("action", "").lower() for s in steps))

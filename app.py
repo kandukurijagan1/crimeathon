@@ -156,6 +156,7 @@ def serve_static(filename):
 
 # ----- Dashboard summary -----------------------------------------------------
 @app.route("/api/dashboard")
+@require_auth
 def dashboard():
     logs = get_all_logs()
     anomaly_report = run_all_detections()
@@ -193,6 +194,7 @@ def dashboard():
 
 # ----- Security Logs ---------------------------------------------------------
 @app.route("/api/logs")
+@require_auth
 def logs():
     category = request.args.get("category")
     severity = request.args.get("severity")
@@ -215,6 +217,7 @@ def logs():
 
 # ----- Alerts (derived from anomaly detection) --------------------------------
 @app.route("/api/alerts")
+@require_auth
 def alerts():
     report = run_all_detections()
     alert_list = []
@@ -242,6 +245,7 @@ def alerts():
 
 # ----- Incident Timeline -----------------------------------------------------
 @app.route("/api/timeline")
+@require_auth
 def timeline():
     detail = request.args.get("detail", "full")
     data = get_timeline() if detail == "full" else get_timeline_summary()
@@ -254,6 +258,7 @@ def timeline():
 
 # ----- Security Policies / Recommendations -----------------------------------
 @app.route("/api/policies")
+@require_auth
 def policies():
     policy_list = [
         {
@@ -362,7 +367,7 @@ def simulate():
             "event_ids": ["CHG-882"],
             "evidence_refs": ["E11"],
             "action": "Integration settings read from external IP (Event CHG-882 at 03:16:35 IST)",
-            "result": "CONFIG ACCESSED — Resource read logged; plaintext secret exposure unverified in evidence",
+            "result": "CONFIG ACCESSED — Resource read logged; initial secret exposure mechanism unverified in evidence",
             "risk": "critical",
             "notes": "Direct observation: Settings resource read logged. Visual secret exposure remains unproven."
         },
@@ -439,6 +444,7 @@ def simulate():
 
 # ----- Evidence Catalog -------------------------------------------------------
 @app.route("/api/evidence")
+@require_auth
 def evidence():
     eid = request.args.get("id")
     if eid:
@@ -455,6 +461,7 @@ def evidence():
 
 # ----- Evidence Integrity & Hashes (Dynamic Loader) --------------------------
 @app.route("/api/evidence/integrity")
+@require_auth
 def evidence_integrity():
     """Returns SHA-256 integrity hashes, file sizes, and verification status for E01-E12."""
     inv = get_evidence_inventory()
@@ -468,6 +475,7 @@ def evidence_integrity():
 
 
 @app.route("/api/evidence/raw/<eid>")
+@require_auth
 def evidence_raw(eid):
     """Safely retrieves raw contents of an evidence file for forensic inspection."""
     data, err = load_raw_evidence_file(eid)
@@ -485,6 +493,7 @@ def evidence_raw(eid):
 
 # ----- Credential Audit -------------------------------------------------------
 @app.route("/api/credential-audit")
+@require_auth
 def credential_audit():
     audit_data = {
         "status": "simulated",
@@ -501,7 +510,8 @@ def credential_audit():
                 "age_months": 7,
                 "expires": "never",
                 "ip_restriction": "not configured",
-                "mfa_enabled": False,
+                "mfa_status": "N/A (Machine-to-Machine Integration Key — E01 records MFA: N/A)",
+                "auth_type": "Static API Key / Bearer Token",
                 "permissions": ["attendance.read", "learner.search", "learner.export", "course.read"],
                 "compliant": False,
                 "issues": [
@@ -592,21 +602,25 @@ def rotate_credential():
     return jsonify({
         "status": "SIMULATED_DEMONSTRATION",
         "simulation_mode": True,
+        "real_credential_rotated": False,
         "account": account,
         "action": "SIMULATED_CREDENTIAL_ROTATION",
         "mock_new_credential_id": f"cred-sim-{new_id}",
         "rotated_at": datetime.now(IST).isoformat(),
         "policy_rotation_interval": "90 days",
         "authenticated_operator": request.current_user["username"],
+        "message": "SIMULATED WORKFLOW DEMONSTRATION ONLY: No production secrets manager is connected. No production credentials were altered or revoked.",
         "notice": (
             "SIMULATION ONLY: No live HashiCorp Vault or production secrets manager is connected. "
-            "This response demonstrates the SOP workflow and parameter specification required for automated credential rotation."
+            "This response demonstrates the SOP workflow and parameter specification required for automated credential rotation. "
+            "No production secrets were rotated or altered."
         )
     })
 
 
 # ----- Anomaly Detection Results ----------------------------------------------
 @app.route("/api/anomaly-detection")
+@require_auth
 def anomaly_detection():
     report = run_all_detections()
     report["status"] = "simulated"
@@ -615,6 +629,7 @@ def anomaly_detection():
 
 # ----- Advanced Interactive Defense Tools ------------------------------------
 @app.route("/api/test-ip", methods=["POST"])
+@require_auth
 def test_ip():
     if not request.is_json:
         return jsonify({"error": "BAD_REQUEST", "message": "Request body must be valid JSON"}), 400
@@ -660,6 +675,7 @@ def test_ip():
 
 
 @app.route("/api/test-role", methods=["POST"])
+@require_auth
 def test_role():
     if not request.is_json:
         return jsonify({"error": "BAD_REQUEST", "message": "Request body must be valid JSON"}), 400
@@ -752,7 +768,6 @@ def export_report():
         "exfiltration_size_bytes": 486200,
         "compromised_identity": "svc_rollcall (rc-prod-01)",
         "unauthorized_external_ip": "203.0.113.77",
-        "external_attacker_ip": "203.0.113.77",
         "root_cause_summary": (
             "Service identity 'svc_rollcall' operated with unexpiring, unrotated credentials (~7 months active, "
             "created 2026-03-04 with expires: never), excessive permissions ('learner.export'), and unrestricted "

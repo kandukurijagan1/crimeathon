@@ -131,7 +131,7 @@ slides_data = [
             '  * Cyberpunk dark theme with live radar sweep canvas, KPI cards, and modal inspectors.',
             'Local Simulation Suite (Hardened vs. Vulnerable):',
             '  * Mock API Server testing both role boundaries and isolated export record ceilings (100 record limit).',
-            '  * Automated verification test harness validating 60 distinct security assertions across 20 categories.'
+            '  * Automated verification test harness validating 63 distinct security assertions across 20 categories.'
         ]
     },
     {
@@ -146,7 +146,7 @@ slides_data = [
             '  [PASS] Invalid / revoked token denied -> HTTP 403 Forbidden',
             '  [PASS] ISOLATED EXPORT LIMIT: Bulk export > 100 blocked by record ceiling -> HTTP 400',
             '  [PASS] ISOLATED EXPORT LIMIT: Small export <= 100 records permitted for authorized role -> HTTP 200',
-            'Overall Test Suite: 100% PASS RATE (60/60 Tests Passed across all 20 Security & Evidence Categories).'
+            'Overall Test Suite: 100% PASS RATE (63/63 Tests Passed across all 20 Security & Evidence Categories).'
         ]
     },
     {

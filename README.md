@@ -5,7 +5,7 @@
 [![Team](https://img.shields.io/badge/Team-SENTRIX-green.svg)](https://github.com)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.0%2B-black.svg)](https://flask.palletsprojects.com)
-[![Tests](https://img.shields.io/badge/Tests-60%2F60%20Passing-brightgreen.svg)](run_tests.py)
+[![Tests](https://img.shields.io/badge/Tests-63%2F63%20Passing-brightgreen.svg)](run_tests.py)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **CRIMEATHON’26 — Case NS-26-014: The Northstar Learning Services Investigation**  
@@ -59,7 +59,7 @@ On **12 October 2026**, Northstar Skills Academy experienced an unauthorized dat
 crimathon/
 ├── app.py                           # Main Flask REST API & Web Server (Auth, RBAC & ipaddress Hardened)
 ├── requirements.txt                 # Dependencies (Flask, Flask-CORS, python-pptx)
-├── run_tests.py                     # Comprehensive Security Test Suite (60/60 Tests Across 20 Categories)
+├── run_tests.py                     # Comprehensive Security Test Suite (63/63 Tests Across 20 Categories)
 ├── PROBLEM_STATEMENT.md             # One-Page Problem Statement (Markdown)
 ├── PROBLEM_STATEMENT.html           # Print-Ready A4 Single-Page Problem Statement (HTML/CSS)
 ├── SENTRIX_SHIELD_PRESENTATION.pptx # 10-Slide Technical Evaluation Pitch Deck
@@ -97,11 +97,11 @@ pip install -r requirements.txt
 ```
 
 ### 2. Run the Verification Test Suite
-Run the 60-point automated security verification suite across 20 categories:
+Run the 63-point automated security verification suite across 20 categories:
 ```bash
 python run_tests.py
 ```
-*Expected Output: `60 PASSED, 0 FAILED (100% Success Rate)`*
+*Expected Output: `63 PASSED, 0 FAILED (100% Success Rate)`*
 
 ### 3. Launch the SENTRIX SHIELD Web Platform
 Start the Flask application:
@@ -115,10 +115,10 @@ Open your browser and navigate to: **`http://localhost:5000`**
 ## 🔒 Security Architecture & Defensive Controls
 
 ### 1. Flask API Authentication & Role-Based Access Control (RBAC)
-Sensitive management endpoints enforce cryptographic Bearer token validation via `@require_auth` and `@require_role` decorators:
+Every single `/api/*` endpoint strictly enforces cryptographic Bearer token validation via `@require_auth` and `@require_role` decorators:
 - **Admin Role:** `Authorization: Bearer sentrix-admin-token-2026-auth` (Permits configuration rotation, test execution, report downloads, simulation).
-- **Analyst Role:** `Authorization: Bearer sentrix-analyst-token-2026-auth` (Permits test execution, report downloads, simulation; blocks rotation with `403 Forbidden`).
-- **Unauthenticated Requests:** Returns `401 Unauthorized` (e.g., `{"error": "Missing or invalid Authorization header"}`).
+- **Analyst Role:** `Authorization: Bearer sentrix-analyst-token-2026-auth` (Permits telemetry read, audit inspections, test execution, report downloads; rotation returns `403 Forbidden`).
+- **Unauthenticated Requests:** Returns `401 Unauthorized` across all `/api/*` routes.
 
 ### 2. Network Boundary Verification (`ipaddress` Module)
 Firewall IP evaluations validate input formats strictly using Python's standard `ipaddress.ip_address` library. Subnet containment checks use `ipaddress.ip_network`:
@@ -136,7 +136,7 @@ The `/api/test-role` endpoint enforces server-side role validation matrices rath
 Cross-Origin Resource Sharing is strictly constrained to authorized origins (`http://127.0.0.1:5000`, `http://localhost:5000`) without wildcards (`*`).
 
 ### 5. Simulated Vault Credential Rotation
-The credential rotation endpoint `/api/rotate-credential` is explicitly labeled and audited as a **SIMULATED DEMONSTRATION** (`status: "SIMULATED_DEMONSTRATION"`), demonstrating secret rotation workflows safely without claiming direct integration with an unconfigured physical secret vault.
+The credential rotation endpoint `/api/rotate-credential` is explicitly labeled and audited as a **SIMULATED DEMONSTRATION** (`status: "SIMULATED_DEMONSTRATION"`, `real_credential_rotated: false`), demonstrating secret rotation workflows safely without claiming direct integration with an unconfigured physical secret vault.
 
 ---
 
@@ -169,20 +169,21 @@ python test_hardened_api.py
 | Method | Endpoint | Access Level | Description |
 |:---:|---|:---:|---|
 | `GET` | `/` | Public | Serves the interactive Single-Page Application (SPA) dashboard |
-| `GET` | `/api/dashboard` | Public | Telemetry summary, active threat score, and case metrics |
-| `GET` | `/api/logs` | Public | Security log stream from authentic E01–E12 records |
-| `GET` | `/api/alerts` | Public | Active SIEM real-time alerts with heuristic severity scores |
-| `GET` | `/api/timeline` | Public | Incident timeline with MITRE ATT&CK tactics & hypothesis status |
-| `GET` | `/api/policies` | Public | Security hardening policies, current gaps, and recommendations |
-| `GET` | `/api/evidence` | Public | Evidence catalog with E01–E12 cross-references and risk ratings |
-| `GET` | `/api/evidence/integrity`| Public | Dynamic SHA-256 cryptographic hashes and verification status |
-| `GET` | `/api/evidence/raw/<eid>`| Public | Secure raw case dossier artifact inspector for E01–E12 |
-| `GET` | `/api/credential-audit`| Public | Service and staff account lifecycle compliance audit (~7 mos age) |
-| `POST` | `/api/test-ip` | Public (Validated)| Evaluates inbound IP with Python `ipaddress` against firewall rules |
-| `POST` | `/api/test-role` | Public (Validated)| Tests role authorization with server-side RBAC validation |
+| `GET` | `/api/dashboard` | Bearer (Analyst/Admin)| Telemetry summary, active threat score, and case metrics |
+| `GET` | `/api/logs` | Bearer (Analyst/Admin)| Security log stream from authentic E01–E12 records |
+| `GET` | `/api/alerts` | Bearer (Analyst/Admin)| Active SIEM real-time alerts with heuristic severity scores |
+| `GET` | `/api/timeline` | Bearer (Analyst/Admin)| Incident timeline with MITRE ATT&CK tactics & hypothesis status |
+| `GET` | `/api/policies` | Bearer (Analyst/Admin)| Security hardening policies, current gaps, and recommendations |
+| `GET` | `/api/evidence` | Bearer (Analyst/Admin)| Evidence catalog with E01–E12 cross-references and risk ratings |
+| `GET` | `/api/evidence/integrity`| Bearer (Analyst/Admin)| Dynamic SHA-256 cryptographic hashes and verification status |
+| `GET` | `/api/evidence/raw/<eid>`| Bearer (Analyst/Admin)| Secure raw case dossier artifact inspector for E01–E12 |
+| `GET` | `/api/credential-audit`| Bearer (Analyst/Admin)| Service and staff account lifecycle compliance audit (~7 mos age) |
+| `GET` | `/api/anomaly-detection`| Bearer (Analyst/Admin)| Returns real-time heuristic anomaly detection results |
+| `POST` | `/api/test-ip` | Bearer (Analyst/Admin)| Evaluates inbound IP with Python `ipaddress` against firewall rules |
+| `POST` | `/api/test-role` | Bearer (Analyst/Admin)| Tests role authorization with server-side RBAC validation |
 | `POST` | `/api/simulate` | Bearer (Analyst/Admin)| Simulates multi-stage attack and tests defense controls |
 | `POST` | `/api/rotate-credential`| Bearer (Admin Only)| Executes simulated vault credential rotation demonstration |
-| `POST` | `/api/run-tests` | Bearer (Analyst/Admin)| Executes 60-point test harness and returns JSON results |
+| `POST` | `/api/run-tests` | Bearer (Analyst/Admin)| Executes 63-point test harness and returns JSON results |
 | `GET` | `/api/export-report`| Bearer (Analyst/Admin)| Downloads full forensic case report in JSON format |
 | `GET` | `/api/export-report/csv`| Bearer (Analyst/Admin)| Downloads complete forensic findings and timeline as CSV |
 
