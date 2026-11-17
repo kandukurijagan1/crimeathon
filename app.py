@@ -419,6 +419,133 @@ def anomaly_detection():
     return jsonify(report)
 
 
+# ----- Advanced Interactive Defense Tools ------------------------------------
+@app.route("/api/test-ip", methods=["POST"])
+def test_ip():
+    body = request.get_json(silent=True) or {}
+    ip = body.get("ip", "").strip()
+    whitelisted = {"10.10.4.12", "198.51.100.21", "127.0.0.1", "10.0.1.15", "10.0.5.10"}
+    
+    if not ip:
+        return jsonify({"error": "IP address required"}), 400
+        
+    is_allowed = ip in whitelisted or ip.startswith("10.10.4.") or ip.startswith("198.51.100.")
+    if is_allowed:
+        return jsonify({
+            "ip": ip,
+            "status": "ALLOWED",
+            "action": "PERMIT_INGRESS",
+            "rule": "RULE-FW-ALLOW-INTERNAL",
+            "reason": f"IP {ip} belongs to approved internal subnet whitelist (Northstar Operations).",
+            "risk_score": 0
+        })
+    else:
+        return jsonify({
+            "ip": ip,
+            "status": "BLOCKED",
+            "action": "DROP_AND_SIEM_ALERT",
+            "rule": "RULE-FW-DROP-EXTERNAL",
+            "reason": f"IP {ip} is an untrusted external network. Zero-Trust perimeter dropped inbound traffic.",
+            "risk_score": 95,
+            "siem_alert": "ALT-NET-09: Ingress attempt from unwhitelisted source address"
+        })
+
+
+@app.route("/api/test-role", methods=["POST"])
+def test_role():
+    body = request.get_json(silent=True) or {}
+    role = body.get("role", "attendance.read")
+    endpoint = body.get("endpoint", "/v1/attendance")
+    
+    role_permissions = {
+        "attendance.read": ["/v1/attendance"],
+        "learner.search": ["/v1/attendance", "/v1/learners/search", "/v1/courses"],
+        "learner.export": ["/v1/attendance", "/v1/learners/search", "/v1/learners/export", "/v1/courses"],
+        "admin": ["/v1/attendance", "/v1/learners/search", "/v1/learners/export", "/v1/courses", "/v1/config"]
+    }
+    
+    allowed_endpoints = role_permissions.get(role, [])
+    permitted = endpoint in allowed_endpoints
+    
+    return jsonify({
+        "role": role,
+        "endpoint": endpoint,
+        "status": "PERMITTED" if permitted else "DENIED_403",
+        "http_code": 200 if permitted else 403,
+        "reason": (
+            f"Role '{role}' is authorized to access '{endpoint}'."
+            if permitted else
+            f"Access denied: Endpoint '{endpoint}' requires elevated privileges beyond '{role}'. Principle of least privilege enforced."
+        ),
+        "hardened_enforced": True
+    })
+
+
+@app.route("/api/run-tests", methods=["POST"])
+def run_tests_api():
+    """Runs test assertions and returns structured JSON results for the frontend lab."""
+    import subprocess, sys
+    try:
+        proc = subprocess.run([sys.executable, "run_tests.py"], capture_output=True, text=True, timeout=15)
+        output = proc.stdout + proc.stderr
+        
+        # Parse tests
+        passes = output.count("[PASS]")
+        fails = output.count("[FAIL]")
+        total = passes + fails
+        
+        return jsonify({
+            "status": "completed",
+            "exit_code": proc.returncode,
+            "total": total,
+            "passed": passes,
+            "failed": fails,
+            "success_rate": f"{(passes / total * 100):.1f}%" if total > 0 else "100%",
+            "raw_output": output
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/export-report")
+def export_report():
+    """Generates complete forensic case report in JSON format."""
+    anomaly_data = run_all_detections()
+    timeline_data = get_timeline()
+    
+    report = {
+        "report_id": f"REP-SENTRIX-{datetime.now(IST).strftime('%Y%m%d%H%M%S')}",
+        "generated_at": datetime.now(IST).isoformat(),
+        "case_file": "NS-26-014 — The Northstar Learning Services Investigation",
+        "institution": "Northstar Skills Academy Pvt. Ltd. (Chennai)",
+        "track": "DEFENSE",
+        "team": "SENTRIX (SIMATS)",
+        "incident_date": "2026-10-12",
+        "threat_level": anomaly_data["threat_level"],
+        "overall_risk_score": anomaly_data["overall_risk_score"],
+        "records_compromised": 2300,
+        "exfiltration_size_bytes": 486200,
+        "compromised_identity": "svc_rollcall (rc-prod-01)",
+        "external_attacker_ip": "203.0.113.77",
+        "root_cause_summary": (
+            "Service identity 'svc_rollcall' operated with unexpiring, unrotated credentials (14+ months), "
+            "excessive permissions ('learner.export'), and unrestricted network ingress, enabling external attacker "
+            "to query and download 2,300 learner records."
+        ),
+        "evidence_inventory": EVIDENCE_CATALOG,
+        "incident_timeline": timeline_data,
+        "anomaly_findings": anomaly_data["findings"],
+        "defense_recommendations": [
+            "Enforce mandatory 90-day automated credential rotation using HashiCorp Vault.",
+            "Enforce zero-trust IP allowlisting restricting integration APIs to 10.10.4.12.",
+            "De-scope service credentials to read-only attendance synchronization.",
+            "Require dual-authorization and DLP screening on bulk data exports.",
+            "Enforce immediate real-time SIEM alerting on off-subnet logins and off-hours config reads."
+        ]
+    }
+    return jsonify(report)
+
+
 # =============================================================================
 # Main
 # =============================================================================
