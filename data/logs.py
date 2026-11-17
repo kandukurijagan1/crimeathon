@@ -221,7 +221,157 @@ AUTH_LOGS = [
 ]
 
 # =============================================================================
-# E02 & E03: Portal and API Gateway Logs (ClassBridge & Gateway)
+# E02: ClassBridge Portal Audit Logs
+# =============================================================================
+PORTAL_LOGS = [
+    {
+        "event_id": "P001",
+        "timestamp": "2026-10-10T02:01:20+05:30",
+        "user": "svc_rollcall",
+        "actor": "svc_rollcall",
+        "action": "attendance.read",
+        "object": "attendance/weekly",
+        "record_count": 240,
+        "records": 240,
+        "ip": "10.10.4.12",
+        "result": "success",
+        "category": "portal_audit",
+        "severity": "low",
+        "details": "Routine weekly attendance sync query via portal connector.",
+        "evidence_id": "E02"
+    },
+    {
+        "event_id": "P002",
+        "timestamp": "2026-10-11T02:01:18+05:30",
+        "user": "svc_rollcall",
+        "actor": "svc_rollcall",
+        "action": "attendance.read",
+        "object": "attendance/daily",
+        "record_count": 238,
+        "records": 238,
+        "ip": "10.10.4.12",
+        "result": "success",
+        "category": "portal_audit",
+        "severity": "low",
+        "details": "Routine daily attendance sync query via portal connector.",
+        "evidence_id": "E02"
+    },
+    {
+        "event_id": "P003",
+        "timestamp": "2026-10-12T03:16:41+05:30",
+        "user": "svc_rollcall",
+        "actor": "svc_rollcall",
+        "action": "learner.search",
+        "object": "learners",
+        "record_count": 2300,
+        "records": 2300,
+        "ip": "203.0.113.77",
+        "result": "success",
+        "category": "portal_audit",
+        "severity": "critical",
+        "details": "ANOMALOUS SEARCH: Mass enumeration query searching across all 2,300 learners from external IP 203.0.113.77.",
+        "evidence_id": "E02"
+    },
+    {
+        "event_id": "P004",
+        "timestamp": "2026-10-12T03:17:10+05:30",
+        "user": "svc_rollcall",
+        "actor": "svc_rollcall",
+        "action": "learner.export",
+        "object": "learners/basic-profile",
+        "record_count": 2300,
+        "records": 2300,
+        "ip": "203.0.113.77",
+        "result": "success",
+        "category": "portal_audit",
+        "severity": "critical",
+        "details": "UNAUTHORIZED EXPORT: 2,300 learner basic-profile records exported by svc_rollcall from external IP 203.0.113.77.",
+        "evidence_id": "E02"
+    },
+    {
+        "event_id": "P005",
+        "timestamp": "2026-10-12T03:18:52+05:30",
+        "user": "svc_rollcall",
+        "actor": "svc_rollcall",
+        "action": "course.read",
+        "object": "courses/current",
+        "record_count": 42,
+        "records": 42,
+        "ip": "203.0.113.77",
+        "result": "success",
+        "category": "portal_audit",
+        "severity": "high",
+        "details": "Reconnaissance read on current courses (42 records) from external IP 203.0.113.77.",
+        "evidence_id": "E02"
+    },
+    {
+        "event_id": "P006",
+        "timestamp": "2026-10-12T03:19:22+05:30",
+        "user": "svc_rollcall",
+        "actor": "svc_rollcall",
+        "action": "attendance.read",
+        "object": "attendance/all",
+        "record_count": 2300,
+        "records": 2300,
+        "ip": "203.0.113.77",
+        "result": "success",
+        "category": "portal_audit",
+        "severity": "critical",
+        "details": "Full attendance dump across 2,300 learners from external IP 203.0.113.77.",
+        "evidence_id": "E02"
+    },
+    {
+        "event_id": "P007",
+        "timestamp": "2026-10-12T03:22:01+05:30",
+        "user": "ananya.r",
+        "actor": "ananya.r",
+        "action": "learner.search",
+        "object": "learners/class-12A",
+        "record_count": 32,
+        "records": 32,
+        "ip": "198.51.100.21",
+        "result": "success",
+        "category": "portal_audit",
+        "severity": "low",
+        "details": "Authorized staff portal search for Class 12A learners from internal IT subnet.",
+        "evidence_id": "E02"
+    },
+    {
+        "event_id": "P008",
+        "timestamp": "2026-10-13T02:01:20+05:30",
+        "user": "svc_rollcall",
+        "actor": "svc_rollcall",
+        "action": "attendance.read",
+        "object": "attendance/weekly",
+        "record_count": 241,
+        "records": 241,
+        "ip": "10.10.4.12",
+        "result": "success",
+        "category": "portal_audit",
+        "severity": "low",
+        "details": "Normal attendance sync resumed from internal connector node 10.10.4.12.",
+        "evidence_id": "E02"
+    },
+    {
+        "event_id": "P009",
+        "timestamp": "2026-10-14T02:01:20+05:30",
+        "user": "svc_rollcall",
+        "actor": "svc_rollcall",
+        "action": "attendance.read",
+        "object": "attendance/weekly",
+        "record_count": 239,
+        "records": 239,
+        "ip": "10.10.4.12",
+        "result": "success",
+        "category": "portal_audit",
+        "severity": "low",
+        "details": "Normal attendance sync continued from internal connector node 10.10.4.12.",
+        "evidence_id": "E02"
+    },
+]
+
+# =============================================================================
+# E03: API Gateway Logs
 # =============================================================================
 API_ACCESS_LOGS = [
     {
@@ -577,6 +727,7 @@ def get_all_logs():
     """Return all genuine event records sorted chronologically."""
     combined = (
         AUTH_LOGS
+        + PORTAL_LOGS
         + API_ACCESS_LOGS
         + CONFIG_ACCESS_LOGS
         + DATA_EXPORT_LOGS

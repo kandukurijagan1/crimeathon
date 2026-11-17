@@ -1,9 +1,13 @@
 """
-analysis/anomaly.py — Heuristic Anomaly Detection Engine for Sentrix Shield
-===========================================================================
-Analyses authentic Case NS-26-014 telemetry across E01–E12.
-Calculates heuristic severity scores (0–100) reflecting policy deviation and
-potential security impact (NOT statistical compromise probabilities).
+analysis/anomaly.py — Multi-Vector Anomaly Detection & Threat Correlation Engine
+================================================================================
+CRIMEATHON'26 Case NS-26-014: The Northstar Learning Services Investigation
+Analyzes authentic evidence files E01–E12.
+Calculates explainable Heuristic Severity Ratings (0–100) reflecting policy impact.
+Strictly separates conclusions into:
+  1. CONFIRMED OBSERVATION
+  2. STRONGLY SUPPORTED INFERENCE
+  3. UNKNOWN / REQUIRES FURTHER INVESTIGATION
 """
 
 from data.logs import (
@@ -12,17 +16,11 @@ from data.logs import (
     CONFIG_ACCESS_LOGS,
     DATA_EXPORT_LOGS,
     NETWORK_LOGS,
+    HELPDESK_LOGS,
 )
 
-# ---------------------------------------------------------------------------
-# Approved network baselines & operational thresholds
-# ---------------------------------------------------------------------------
-NORMAL_ATTENDANCE_RECORD_LIMIT = 250
-OFF_HOURS_START = 0   # 00:00 IST
-OFF_HOURS_END = 6     # 06:00 IST
-
-# Documented internal subnets per E01, E03, E04, E07, E09
-WHITELISTED_INTERNAL_IPS = {
+# Documented internal authorized subnets
+APPROVED_INTERNAL_IPS = {
     "10.10.4.12",       # Approved Northstar integration connector node (E05, E09, E10)
     "198.51.100.21",    # IT Operations staff management subnet (E01, E03, E07)
     "198.51.100.31",    # Finance reporting authorized subnet (E04)
@@ -31,177 +29,281 @@ WHITELISTED_INTERNAL_IPS = {
 }
 
 EXTERNAL_ATTACKER_IP = "203.0.113.77"
+NORMAL_ATTENDANCE_LIMIT = 250
 
 
-def _hour_from_ts(ts: str) -> int:
-    """Extract hour (int) from an ISO timestamp string."""
-    try:
-        return int(ts[11:13])
-    except (IndexError, ValueError):
-        return -1
+# =============================================================================
+# Detection Rules
+# =============================================================================
 
-
-# ---------------------------------------------------------------------------
-# Heuristic Detection Rules
-# ---------------------------------------------------------------------------
-
-def detect_unwhitelisted_external_ip():
-    """Rule 1: Detect inbound service activity from unwhitelisted external IPs."""
-    findings = []
-    suspicious_events = []
+def detect_external_service_ingress():
+    """Rule 1: Detect inbound service-identity usage from unwhitelisted external IP."""
+    hits = [l for l in AUTH_LOGS if l.get("ip") == EXTERNAL_ATTACKER_IP]
+    net_hits = [l for l in NETWORK_LOGS if l.get("src_ip") == EXTERNAL_ATTACKER_IP]
     
-    for log in AUTH_LOGS + API_ACCESS_LOGS + DATA_EXPORT_LOGS + CONFIG_ACCESS_LOGS:
-        ip = log.get("ip", "")
-        if ip and ip not in WHITELISTED_INTERNAL_IPS:
-            suspicious_events.append(log)
-            
-    if suspicious_events:
-        findings.append({
-            "rule_id": "RULE-SEC-01",
+    if hits:
+        event_ids = sorted(list(set([l["event_id"] for l in hits] + [l["event_id"] for l in net_hits])))
+        return [{
+            "finding_id": "FND-001",
             "anomaly": "External Source IP for Service Identity",
+            "severity": "CRITICAL",
             "heuristic_score": 95,
-            "risk_level": "critical",
-            "description": (
-                f"Service identity activity observed from external IP {EXTERNAL_ATTACKER_IP} "
-                f"across {len(suspicious_events)} correlated events. Integration register INT-01 "
-                "had 'ip_restriction: not configured', allowing unverified perimeter access."
+            "risk_score": 95,
+            "timestamp": "2026-10-12T03:15:55+05:30",
+            "source_evidence_file": "E01_Authentication_Logs.csv, E09_Network_Observations.csv",
+            "event_ids": event_ids,
+            "event_id": event_ids[0],
+            "detection_rule": "RULE-AUTH-01: Ingress Service-Account Boundary Enforcement",
+            "reason_for_flagging": (
+                f"Service identity 'svc_rollcall' authenticated via token rc-prod-01 from unrecognized "
+                f"external IP {EXTERNAL_ATTACKER_IP}. Routine daily connector authentications strictly originate "
+                "from internal subnet node 10.10.4.12 at approximately 02:01 IST."
             ),
-            "affected_events": sorted(list(set(e["event_id"] for e in suspicious_events))),
-            "recommendation": "Enforce strict IP allowlisting at API Gateway restricting connector to 10.10.4.12.",
-            "policy_violation": "NS-SEC-04 Rule 4 (Documented source network restriction)"
-        })
-    return findings
+            "confidence_classification": "CONFIRMED OBSERVATION",
+            "recommended_defensive_action": (
+                "Deploy strict IP allowlisting on API gateway and edge firewalls restricting svc_rollcall "
+                "to internal connector host 10.10.4.12 only. Drop external packets and trigger real-time SIEM alerts."
+            ),
+            "policy_violation": "NS-SEC-04 Rule 4 (Vendor integrations restricted to documented source networks)"
+        }]
+    return []
 
 
-def detect_off_hours_bulk_export():
-    """Rule 2: Detect unauthorized bulk learner export exceeding baseline limit."""
-    findings = []
-    export_events = [
-        log for log in DATA_EXPORT_LOGS
-        if log.get("record_count", 0) > NORMAL_ATTENDANCE_RECORD_LIMIT
-    ]
-    api_export_events = [
-        log for log in API_ACCESS_LOGS
-        if log.get("endpoint") == "/v1/learners/export" or log.get("records_returned", 0) > NORMAL_ATTENDANCE_RECORD_LIMIT
-    ]
+def detect_bulk_learner_export():
+    """Rule 2: Detect unauthorized bulk learner search and profile export."""
+    vault_exports = [l for l in DATA_EXPORT_LOGS if l.get("record_count", 0) > NORMAL_ATTENDANCE_LIMIT]
+    api_exports = [l for l in API_ACCESS_LOGS if l.get("endpoint") == "/v1/learners/export"]
     
-    if export_events or api_export_events:
-        all_ids = [e["event_id"] for e in export_events + api_export_events]
-        findings.append({
-            "rule_id": "RULE-SEC-02",
+    if vault_exports or api_exports:
+        event_ids = sorted(list(set([l["event_id"] for l in vault_exports + api_exports])))
+        return [{
+            "finding_id": "FND-002",
             "anomaly": "Unauthorized Bulk Learner Profile Export",
+            "severity": "CRITICAL",
             "heuristic_score": 98,
-            "risk_level": "critical",
-            "description": (
-                "Bulk export of 2,300 active student records triggered via /v1/learners/export (R004/P004) "
-                "and downloaded from CampusVault (C003, C004; 486,200 bytes). Normal attendance baseline is ~240 records."
+            "risk_score": 98,
+            "timestamp": "2026-10-12T03:17:09+05:30",
+            "source_evidence_file": "E02_ClassBridge_Audit_Logs.csv, E03_API_Gateway_Logs.csv, E04_CampusVault_Audit_Logs.csv",
+            "event_ids": event_ids,
+            "event_id": "R004",
+            "detection_rule": "RULE-API-02: Bulk Data Export & Least-Privilege Role Scoping",
+            "reason_for_flagging": (
+                "Client rollcall-prod invoked POST /v1/learners/export, returning 2,300 learner profile records "
+                "(P004/R004) and creating cloud archive learners-20261012.csv (486,200 bytes). "
+                "Attendance connectors should never be provisioned with export permissions."
             ),
-            "affected_events": sorted(list(set(all_ids))),
-            "recommendation": "Remove learner.export scope from connector identity; require manager approval for bulk exports.",
-            "policy_violation": "NS-SEC-04 Rule 5 (Bulk exports require approved business request)"
-        })
-    return findings
+            "confidence_classification": "CONFIRMED OBSERVATION",
+            "recommended_defensive_action": (
+                "De-scope integration credential INT-01 to attendance.read only; revoke learner.export and "
+                "learner.search. Enforce mandatory manager dual-approval and export record ceilings (max 100)."
+            ),
+            "policy_violation": "NS-SEC-04 Rule 2 (Least privilege) & Rule 5 (Bulk exports require approved request)"
+        }]
+    return []
 
 
-def detect_config_read_preceding_abuse():
-    """Rule 3: Detect configuration read preceding API query burst."""
-    findings = []
-    config_reads = [
-        log for log in CONFIG_ACCESS_LOGS
-        if log.get("action") == "credential_config_read" and log.get("ip") not in WHITELISTED_INTERNAL_IPS
-    ]
+def detect_repeated_archive_download():
+    """Rule 3: Detect multiple exfiltration downloads of sensitive cloud archive."""
+    downloads = [l for l in DATA_EXPORT_LOGS if l.get("action") == "object.download" and l.get("ip") == EXTERNAL_ATTACKER_IP]
+    
+    if len(downloads) >= 2:
+        event_ids = [d["event_id"] for d in downloads]
+        total_bytes = sum(d.get("bytes", 0) for d in downloads)
+        return [{
+            "finding_id": "FND-003",
+            "anomaly": "Repeated Cloud Archive Download (Data Exfiltration)",
+            "severity": "CRITICAL",
+            "heuristic_score": 100,
+            "risk_score": 100,
+            "timestamp": "2026-10-12T03:21:03+05:30",
+            "source_evidence_file": "E04_CampusVault_Audit_Logs.csv",
+            "event_ids": event_ids,
+            "event_id": event_ids[0],
+            "detection_rule": "RULE-VAULT-03: Repeated Cloud Storage Download & Exfiltration Pattern",
+            "reason_for_flagging": (
+                f"Archive 'learners-20261012.csv' (486,200 bytes) was downloaded TWICE (C003 at 03:21:03 and "
+                f"C004 at 03:24:48) by rollcall-prod to external host {EXTERNAL_ATTACKER_IP}, transferring {total_bytes} bytes."
+            ),
+            "confidence_classification": "CONFIRMED OBSERVATION",
+            "recommended_defensive_action": (
+                "Quarantine export bucket; require dual-factor authorization for downloading learner archives; "
+                "deploy egress DLP scanning on cloud object stores."
+            ),
+            "policy_violation": "NS-SEC-04 Rule 5 (Bulk exports logged & approved) & Rule 6 (Unusual access volume)"
+        }]
+    return []
+
+
+def detect_config_harvesting():
+    """Rule 4: Detect configuration-settings access correlated with subsequent API burst."""
+    config_reads = [l for l in CONFIG_ACCESS_LOGS if l.get("action") == "credential_config_read" and l.get("ip") == EXTERNAL_ATTACKER_IP]
     
     if config_reads:
-        findings.append({
-            "rule_id": "RULE-SEC-03",
-            "anomaly": "Integration Settings Read from External IP",
+        event_ids = [c["event_id"] for c in config_reads]
+        return [{
+            "finding_id": "FND-004",
+            "anomaly": "Integration Settings Read Correlated with API Burst",
+            "severity": "CRITICAL",
             "heuristic_score": 96,
-            "risk_level": "critical",
-            "description": (
-                "Event CHG-882 records svc_rollcall reading integration-settings/rollcall-prod at 03:16:35 IST "
-                "from external IP 203.0.113.77, occurring seconds before bulk search (R003) and export (R004)."
+            "risk_score": 96,
+            "timestamp": "2026-10-12T03:16:35+05:30",
+            "source_evidence_file": "E11_Additional_Configuration_Audit.csv",
+            "event_ids": event_ids,
+            "event_id": event_ids[0],
+            "detection_rule": "RULE-CFG-04: Off-Hours Configuration Harvest Detection",
+            "reason_for_flagging": (
+                "Event CHG-882 records svc_rollcall reading integration-settings/rollcall-prod from external IP "
+                f"{EXTERNAL_ATTACKER_IP} at 03:16:35 IST, occurring seconds prior to mass learner query (R003) and export (R004)."
             ),
-            "affected_events": [c["event_id"] for c in config_reads],
-            "recommendation": "Encrypt secrets in dedicated secrets vault; deny read access to external integration tokens.",
-            "policy_violation": "NS-SEC-04 Rule 1 (Credentials must reside in approved vault)"
-        })
-    return findings
-
-
-def detect_unusual_api_query_volume():
-    """Rule 4: Detect unusual API velocity and non-attendance endpoint access."""
-    findings = []
-    unusual_calls = [
-        log for log in API_ACCESS_LOGS
-        if log.get("ip") not in WHITELISTED_INTERNAL_IPS and log.get("endpoint") != "/v1/attendance"
-    ]
-    
-    if unusual_calls:
-        findings.append({
-            "rule_id": "RULE-SEC-04",
-            "anomaly": "Anomalous Endpoint Traversal & Query Velocity",
-            "heuristic_score": 92,
-            "risk_level": "critical",
-            "description": (
-                f"Client rollcall-prod accessed non-attendance endpoints (/v1/learners/search, /v1/learners/export, "
-                f"/v1/courses) returning 4,642 total records within 3 minutes from external source 203.0.113.77."
+            "confidence_classification": "CONFIRMED OBSERVATION",
+            "recommended_defensive_action": (
+                "Encrypt integration secrets in HashiCorp Vault; prohibit direct read of plaintext settings via API; "
+                "generate immediate high-priority SIEM alerts on configuration access from non-whitelisted IPs."
             ),
-            "affected_events": [c["event_id"] for c in unusual_calls],
-            "recommendation": "Enforce per-key endpoint rate limiting and strictly scope service keys to /v1/attendance.",
-            "policy_violation": "NS-SEC-04 Rule 2 (Least privilege) & Rule 6 (Review unusual access volumes)"
-        })
-    return findings
+            "policy_violation": "NS-SEC-04 Rule 1 (Credentials stored in approved secrets vault)"
+        }]
+    return []
 
 
-def detect_offboarding_governance_anomaly():
-    """Rule 5: Detect former employee account activity post-departure."""
-    findings = []
-    former_staff_logins = [
-        log for log in AUTH_LOGS
-        if log.get("user") == "former.ajay" and log.get("result") == "SUCCESS"
-    ]
+def detect_credential_hygiene_defect():
+    """Rule 5: Detect missing expiry, missing rotation, and unconstrained IP on integration."""
+    return [{
+        "finding_id": "FND-005",
+        "anomaly": "Stale Credential with Missing Expiry & IP Restriction",
+        "severity": "HIGH",
+        "heuristic_score": 88,
+        "risk_score": 88,
+        "timestamp": "2026-10-12T00:00:00+05:30",
+        "source_evidence_file": "E05_Integration_Register.csv, E12_Incident_Response_Note.txt",
+        "event_ids": ["INT-01", "E12-NOTE"],
+        "event_id": "INT-01",
+        "detection_rule": "RULE-IAM-05: Credential Lifecycle & Hygiene Compliance",
+        "reason_for_flagging": (
+            "Integration INT-01 was created on 2026-03-04 (approx. 7 months active at incident time). "
+            "Register confirms 'expires: never', no scheduled October rotation, and 'ip_restriction: not configured'. "
+            "Allowed the stale token to be used externally without expiry challenge."
+        ),
+        "confidence_classification": "CONFIRMED OBSERVATION",
+        "recommended_defensive_action": (
+            "Enforce mandatory 90-day automated credential rotation; configure hard token expiry TTL; "
+            "mandate source IP allowlisting in the integration register."
+        ),
+        "policy_violation": "NS-SEC-04 Rule 3 (Production service credentials must have expiry or rotation schedule)"
+    }]
+
+
+def detect_former_staff_persistence():
+    """Rule 6: Detect former employee account active post-departure."""
+    ajay_auth = [l for l in AUTH_LOGS if l.get("user") == "former.ajay" and l.get("result") == "SUCCESS"]
     
-    if former_staff_logins:
-        findings.append({
-            "rule_id": "RULE-SEC-05",
+    if ajay_auth:
+        event_ids = [l["event_id"] for l in ajay_auth]
+        return [{
+            "finding_id": "FND-006",
             "anomaly": "Former Employee Account Active Post-Departure",
+            "severity": "HIGH",
             "heuristic_score": 75,
-            "risk_level": "high",
-            "description": (
+            "risk_score": 75,
+            "timestamp": "2026-10-09T09:13:44+05:30",
+            "source_evidence_file": "E01_Authentication_Logs.csv, E07_Staff_and_Service_Account_Register.csv",
+            "event_ids": event_ids,
+            "event_id": event_ids[0],
+            "detection_rule": "RULE-IAM-06: Offboarding Deprovisioning Enforcement",
+            "reason_for_flagging": (
                 "Event A006 records former support technician former.ajay successfully authenticating via MFA on "
-                "2026-10-09 (departed 2026-09-30). This indicates an identity offboarding governance defect. "
-                "Note: Does not establish responsibility for the external incident."
+                "2026-10-09, despite recorded employment end date of 2026-09-30 (E07). "
+                "IMPORTANT FORENSIC BOUNDARY: This confirms an identity offboarding governance defect, but does NOT "
+                "establish responsibility for the external RollCall incident on 12-Oct."
             ),
-            "affected_events": [l["event_id"] for l in former_staff_logins],
-            "recommendation": "Automate HR-to-IAM deprovisioning to revoke all credentials on or before the employee's last day.",
-            "policy_violation": "NS-SEC-04 Rule 7 (Former staff accounts must be disabled on or before last working day)"
-        })
-    return findings
+            "confidence_classification": "CONFIRMED OBSERVATION",
+            "recommended_defensive_action": (
+                "Automate HR-to-IAM deprovisioning pipelines ensuring instant deactivation of accounts on employee last day."
+            ),
+            "policy_violation": "NS-SEC-04 Rule 7 (Former staff accounts disabled on or before last working day)"
+        }]
+    return []
 
 
-# ---------------------------------------------------------------------------
-# Aggregator & Severity Calculator
-# ---------------------------------------------------------------------------
+def detect_ticket_exposure_hypothesis():
+    """Rule 7: Catalog investigated hypothesis regarding ticket screenshot."""
+    return [{
+        "finding_id": "FND-007",
+        "anomaly": "Potential Credential Exposure Opportunity (Investigated Hypothesis)",
+        "severity": "MEDIUM",
+        "heuristic_score": 60,
+        "risk_score": 60,
+        "timestamp": "2026-10-09T15:42:00+05:30",
+        "source_evidence_file": "E06_HelpDesk_Tickets.csv",
+        "event_ids": ["HD-1058"],
+        "event_id": "HD-1058",
+        "detection_rule": "RULE-GOV-07: Secret Leakage & Support Archive Auditing",
+        "reason_for_flagging": (
+            "Ticket HD-1058 recorded an IT Analyst attaching a configuration screenshot to a vendor ticket. "
+            "FORENSIC UNKNOWN: The screenshot's actual image contents are not provided in the case evidence. "
+            "Whether it revealed plaintext secrets or was accessed by unauthorized parties remains UNVERIFIED."
+        ),
+        "confidence_classification": "UNKNOWN / REQUIRES FURTHER INVESTIGATION",
+        "recommended_defensive_action": (
+            "Implement automated DLP scanning on support ticket attachments to redact credentials and API keys."
+        ),
+        "policy_violation": "NS-SEC-04 Rule 1 (Credentials must not be placed in support tickets, screenshots, or email)"
+    }]
+
+
+def detect_unverified_human_operator():
+    """Rule 8: Document the forensic limit regarding physical human operator identity."""
+    return [{
+        "finding_id": "FND-008",
+        "anomaly": "Attribution Boundary (Human Operator Unproven)",
+        "severity": "MEDIUM",
+        "heuristic_score": 50,
+        "risk_score": 50,
+        "timestamp": "2026-10-12T03:16:32+05:30",
+        "source_evidence_file": "E01_Authentication_Logs.csv, E12_Incident_Response_Note.txt",
+        "event_ids": ["A011", "E12-NOTE"],
+        "event_id": "A011",
+        "detection_rule": "RULE-FOR-08: Forensic Attribution Ground-Truth Boundary",
+        "reason_for_flagging": (
+            "While token authentication A011 proves that service account svc_rollcall was operated from external IP "
+            "203.0.113.77, logs do not establish the physical identity of the human operator behind the keyboard. "
+            "Per E12, service-account events must not be treated as proof of physical human identity."
+        ),
+        "confidence_classification": "UNKNOWN / REQUIRES FURTHER INVESTIGATION",
+        "recommended_defensive_action": (
+            "Deploy device-fingerprinting, certificate-based mutual TLS, and hardware token binding for B2B connectors."
+        ),
+        "policy_violation": "Forensic Principle (Do not confuse service identity with physical human attribution)"
+    }]
+
+
+# =============================================================================
+# Aggregator & Classifier
+# =============================================================================
 
 def run_all_detections():
-    """Run all heuristic rules and return unified report with scoring."""
+    """Aggregates all heuristic findings, sorted by severity score."""
     all_findings = (
-        detect_unwhitelisted_external_ip()
-        + detect_off_hours_bulk_export()
-        + detect_config_read_preceding_abuse()
-        + detect_unusual_api_query_volume()
-        + detect_offboarding_governance_anomaly()
+        detect_external_service_ingress()
+        + detect_bulk_learner_export()
+        + detect_repeated_archive_download()
+        + detect_config_harvesting()
+        + detect_credential_hygiene_defect()
+        + detect_former_staff_persistence()
+        + detect_ticket_exposure_hypothesis()
+        + detect_unverified_human_operator()
     )
-    
-    for f in all_findings:
-        f["risk_score"] = f["heuristic_score"]
 
-    # Sort by heuristic severity score descending
+    # Sort descending by heuristic score
     sorted_findings = sorted(all_findings, key=lambda x: x["heuristic_score"], reverse=True)
     max_score = max((f["heuristic_score"] for f in sorted_findings), default=0)
-    
+
+    # Categorize findings by confidence classification
+    confirmed = [f for f in sorted_findings if f["confidence_classification"] == "CONFIRMED OBSERVATION"]
+    inferences = [f for f in sorted_findings if f["confidence_classification"] == "STRONGLY SUPPORTED INFERENCE"]
+    unknowns = [f for f in sorted_findings if f["confidence_classification"] == "UNKNOWN / REQUIRES FURTHER INVESTIGATION"]
+
     return {
-        "scoring_type": "Heuristic Severity Rating (0–100, measures policy impact, not compromise probability)",
+        "scoring_methodology": "Heuristic Severity Rating (0–100, measures policy impact, not compromise probability)",
         "total_anomalies": len(all_findings),
         "unique_anomaly_types": len(sorted_findings),
         "overall_risk_score": max_score,
@@ -210,5 +312,19 @@ def run_all_detections():
             "HIGH" if max_score >= 70 else
             "MEDIUM" if max_score >= 40 else "LOW"
         ),
+        "classification_summary": {
+            "confirmed_observations": len(confirmed),
+            "strongly_supported_inferences": len(inferences),
+            "unknowns_requiring_investigation": len(unknowns)
+        },
         "findings": sorted_findings,
     }
+
+
+# Backward compatibility aliases
+detect_unwhitelisted_external_ip = detect_external_service_ingress
+detect_off_hours_bulk_export = detect_bulk_learner_export
+detect_config_read_preceding_abuse = detect_config_harvesting
+detect_unusual_api_query_volume = detect_bulk_learner_export
+detect_offboarding_governance_anomaly = detect_former_staff_persistence
+

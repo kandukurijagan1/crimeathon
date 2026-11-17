@@ -28,7 +28,7 @@ slides_data = [
             'Selected Track: DEFENSE (Preventive, Detective & Response Controls)',
             'Core Solution: Real-Time Anomaly Detection, Credential Lifecycle Management & Zero-Trust Defense',
             'Deliverables: One-Page Problem Statement + Complete Source Code + Demo Video + PPTX Deck',
-            'Evaluation Readiness: Complete Working Source Code + Local Hardened Simulation + 45/45 Test Suite'
+            'Evaluation Readiness: Complete Working Source Code + Local Hardened Simulation + 15-Category 43/43 Test Suite'
         ]
     },
     {
@@ -146,7 +146,7 @@ slides_data = [
             '  [PASS] Invalid / revoked token denied -> HTTP 403 Forbidden',
             '  [PASS] ISOLATED EXPORT LIMIT: Bulk export > 100 blocked by record ceiling -> HTTP 400',
             '  [PASS] ISOLATED EXPORT LIMIT: Small export <= 100 records permitted for authorized role -> HTTP 200',
-            'Overall Test Suite: 100% PASS RATE (45/45 Tests Passed across all 6 modules).'
+            'Overall Test Suite: 100% PASS RATE (43/43 Tests Passed across all 15 Verification Categories).'
         ]
     },
     {
@@ -154,7 +154,7 @@ slides_data = [
         'subtitle': 'CRIMEATHON 26 Selection Round | Team SENTRIX',
         'points': [
             'Deliverable 1: One-Page Problem Statement (Markdown & Print-Ready PDF / HTML)',
-            'Deliverable 2: Complete Working Source Code (Flask API, Frontend Dashboard, 45/45 Test Suite)',
+            'Deliverable 2: Complete Working Source Code (Flask API, Frontend Dashboard, 43/43 Test Suite)',
             'Deliverable 3: Live Verification Demo & Video Walkthrough Guide',
             'Deliverable 4: Comprehensive Technical Slide Deck (PPTX)',
             '',

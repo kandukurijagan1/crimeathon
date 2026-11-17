@@ -8,8 +8,24 @@ All timestamps are India Standard Time (+05:30).
 
 INCIDENT_TIMELINE = [
     {
-        "phase": "Investigated Exposure Opportunity",
+        "phase": "Identity Governance Defect",
         "step": 1,
+        "timestamp": "2026-10-09T09:13:44+05:30",
+        "title": "Former Staff Member Account Persistence",
+        "description": (
+            "Former support technician Ajay Prakash (EMP-004) authenticated via MFA from internal IP 10.10.8.44 "
+            "(A006, followed by A007 denial) despite departing on 2026-09-30. Violates Policy NS-SEC-04 Rule 7. "
+            "Note: This demonstrates an identity offboarding flaw but does NOT establish responsibility for the external incident."
+        ),
+        "evidence_ids": ["E01", "E07", "E08"],
+        "event_ids": ["A006", "A007", "EMP-004", "NS-SEC-04-R7"],
+        "severity": "medium",
+        "confirmation_status": "CONFIRMED (Separate Governance Defect)",
+        "mitre_tactic": "Persistence (TA0003) — Valid Accounts (T1078)",
+    },
+    {
+        "phase": "Investigated Exposure Opportunity",
+        "step": 2,
         "timestamp": "2026-10-09T15:42:00+05:30",
         "title": "Potential Credential Exposure Opportunity (Hypothesis)",
         "description": (
@@ -23,22 +39,6 @@ INCIDENT_TIMELINE = [
         "severity": "high",
         "confirmation_status": "HYPOTHESIS (Unverified Contents)",
         "mitre_tactic": "Credential Exposure (CWE-312 / T1552)",
-    },
-    {
-        "phase": "Identity Governance Defect",
-        "step": 2,
-        "timestamp": "2026-10-09T09:13:44+05:30",
-        "title": "Former Staff Member Account Persistence",
-        "description": (
-            "Former support technician Ajay Prakash (EMP-004) authenticated via MFA from internal IP 10.10.8.44 "
-            "(A006, followed by A007 denial) despite departing on 2026-09-30. Violates Policy NS-SEC-04 Rule 7. "
-            "Note: This demonstrates an identity offboarding flaw but does NOT establish responsibility for the external incident."
-        ),
-        "evidence_ids": ["E01", "E07", "E08"],
-        "event_ids": ["A006", "A007", "EMP-004", "NS-SEC-04-R7"],
-        "severity": "medium",
-        "confirmation_status": "CONFIRMED (Separate Governance Defect)",
-        "mitre_tactic": "Persistence (TA0003) — Valid Accounts (T1078)",
     },
     {
         "phase": "External Perimeter Ingress",

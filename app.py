@@ -10,12 +10,15 @@ import os
 import uuid
 from datetime import datetime, timezone, timedelta
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
+import io
+import csv
 
 # --- internal modules -------------------------------------------------------
 from data.logs import get_all_logs, get_logs_by_category
 from data.evidence import EVIDENCE_CATALOG, get_evidence_by_id, get_evidence_summary
+from data.loader import get_evidence_inventory, load_raw_evidence_file
 from analysis.anomaly import run_all_detections
 from analysis.timeline import get_timeline, get_timeline_summary
 
@@ -106,13 +109,17 @@ def alerts():
     alert_list = []
     for i, f in enumerate(report["findings"], start=1):
         alert_list.append({
-            "alert_id": f"ALT-{i:03d}",
-            "type": f["anomaly"],
-            "risk_level": f["risk_level"],
-            "risk_score": f["risk_score"],
-            "description": f["description"],
-            "recommendation": f["recommendation"],
-            "affected_events": f["affected_events"],
+            "alert_id": f.get("finding_id", f"ALT-{i:03d}"),
+            "type": f.get("anomaly", ""),
+            "risk_level": f.get("severity", f.get("risk_level", "HIGH")),
+            "risk_score": f.get("heuristic_score", f.get("risk_score", 80)),
+            "heuristic_score": f.get("heuristic_score", f.get("risk_score", 80)),
+            "description": f.get("reason_for_flagging", f.get("description", "")),
+            "recommendation": f.get("recommended_defensive_action", f.get("recommendation", "")),
+            "affected_events": f.get("event_ids", f.get("affected_events", [])),
+            "confidence_classification": f.get("confidence_classification", "CONFIRMED OBSERVATION"),
+            "source_evidence_file": f.get("source_evidence_file", ""),
+            "timestamp": f.get("timestamp", ""),
         })
     return jsonify({
         "status": "simulated",
@@ -303,6 +310,36 @@ def evidence():
     })
 
 
+# ----- Evidence Integrity & Hashes (Dynamic Loader) --------------------------
+@app.route("/api/evidence/integrity")
+def evidence_integrity():
+    """Returns SHA-256 integrity hashes, file sizes, and verification status for E01-E12."""
+    inv = get_evidence_inventory()
+    all_verified = all(item["exists"] and item["status"] == "VERIFIED_INTACT" for item in inv)
+    return jsonify({
+        "status": "verified" if all_verified else "degraded",
+        "verified_intact": all_verified,
+        "total_files": len(inv),
+        "inventory": inv
+    })
+
+
+@app.route("/api/evidence/raw/<eid>")
+def evidence_raw(eid):
+    """Safely retrieves raw contents of an evidence file for forensic inspection."""
+    data, err = load_raw_evidence_file(eid)
+    if err:
+        return jsonify({"error": err}), 404
+    return jsonify({
+        "status": "success",
+        "evidence_id": data["evidence_id"],
+        "filename": data["filename"],
+        "sha256": data["sha256"],
+        "size_bytes": data["size_bytes"],
+        "content": data["content"]
+    })
+
+
 # ----- Credential Audit -------------------------------------------------------
 @app.route("/api/credential-audit")
 def credential_audit():
@@ -393,7 +430,6 @@ def credential_audit():
             ),
         },
     }
-    return jsonify(audit_data)
     return jsonify(audit_data)
 
 
@@ -490,14 +526,15 @@ def test_role():
 @app.route("/api/run-tests", methods=["POST"])
 def run_tests_api():
     """Runs test assertions and returns structured JSON results for the frontend lab."""
-    import subprocess, sys
+    import subprocess, sys, re
     try:
-        proc = subprocess.run([sys.executable, "run_tests.py"], capture_output=True, text=True, timeout=15)
+        proc = subprocess.run([sys.executable, "run_tests.py"], capture_output=True, text=True, timeout=25)
         output = proc.stdout + proc.stderr
         
-        # Parse tests
-        passes = output.count("[PASS]")
-        fails = output.count("[FAIL]")
+        # Strip ANSI escape sequences for accurate string counts
+        clean_output = re.sub(r"\x1b\[[0-9;]*m", "", output)
+        passes = clean_output.count("[PASS]")
+        fails = clean_output.count("[FAIL]")
         total = passes + fails
         
         return jsonify({
@@ -507,7 +544,7 @@ def run_tests_api():
             "passed": passes,
             "failed": fails,
             "success_rate": f"{(passes / total * 100):.1f}%" if total > 0 else "100%",
-            "raw_output": output
+            "raw_output": clean_output
         })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -534,9 +571,9 @@ def export_report():
         "compromised_identity": "svc_rollcall (rc-prod-01)",
         "external_attacker_ip": "203.0.113.77",
         "root_cause_summary": (
-            "Service identity 'svc_rollcall' operated with unexpiring, unrotated credentials (14+ months), "
-            "excessive permissions ('learner.export'), and unrestricted network ingress, enabling external attacker "
-            "to query and download 2,300 learner records."
+            "Service identity 'svc_rollcall' operated with unexpiring, unrotated credentials (~7 months active, "
+            "created 2026-03-04 with expires: never), excessive permissions ('learner.export'), and unrestricted "
+            "network ingress, enabling external attacker at 203.0.113.77 to query and download 2,300 learner records."
         ),
         "evidence_inventory": EVIDENCE_CATALOG,
         "incident_timeline": timeline_data,
@@ -550,6 +587,58 @@ def export_report():
         ]
     }
     return jsonify(report)
+
+
+@app.route("/api/export-report/csv")
+def export_report_csv():
+    """Generates complete forensic case findings and timeline as a downloadable CSV."""
+    anomaly_data = run_all_detections()
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header section
+    writer.writerow(["# SENTRIX SHIELD FORENSIC INVESTIGATION REPORT"])
+    writer.writerow(["# Case", "NS-26-014 — The Northstar Learning Services Investigation"])
+    writer.writerow(["# Track", "DEFENSE"])
+    writer.writerow(["# Team", "SENTRIX (SIMATS)"])
+    writer.writerow(["# Generated", datetime.now(IST).isoformat()])
+    writer.writerow([])
+    
+    # Findings Table
+    writer.writerow(["FINDING_ID", "ANOMALY", "SEVERITY", "HEURISTIC_SCORE", "CONFIDENCE_CLASSIFICATION", "TIMESTAMP_IST", "SOURCE_EVIDENCE", "EVENT_IDS", "RECOMMENDED_DEFENSE"])
+    for f in anomaly_data["findings"]:
+        writer.writerow([
+            f.get("finding_id", ""),
+            f.get("anomaly", ""),
+            f.get("severity", ""),
+            f.get("heuristic_score", 0),
+            f.get("confidence_classification", ""),
+            f.get("timestamp", ""),
+            f.get("source_evidence_file", ""),
+            "; ".join(f.get("event_ids", [])),
+            f.get("recommended_defensive_action", "")
+        ])
+    
+    writer.writerow([])
+    # Timeline Table
+    writer.writerow(["STEP", "TIMESTAMP_IST", "PHASE_TITLE", "CONFIRMATION_STATUS", "EVENT_IDS", "EVIDENCE_FILES", "MITRE_TECHNIQUE"])
+    for s in get_timeline():
+        writer.writerow([
+            s.get("step", ""),
+            s.get("timestamp", ""),
+            s.get("title", ""),
+            s.get("confirmation_status", ""),
+            "; ".join(s.get("event_ids", [])),
+            "; ".join(s.get("evidence_ids", [])),
+            s.get("mitre_tactic", "")
+        ])
+
+    csv_content = output.getvalue()
+    return Response(
+        csv_content,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=sentrix_shield_forensic_report.csv"}
+    )
 
 
 # =============================================================================

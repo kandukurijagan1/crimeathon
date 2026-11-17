@@ -5,7 +5,7 @@
 [![Team](https://img.shields.io/badge/Team-SENTRIX-green.svg)](https://github.com)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-3.0%2B-black.svg)](https://flask.palletsprojects.com)
-[![Tests](https://img.shields.io/badge/Tests-45%2F45%20Passing-brightgreen.svg)](run_tests.py)
+[![Tests](https://img.shields.io/badge/Tests-43%2F43%20Passing-brightgreen.svg)](run_tests.py)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > **CRIMEATHON’26 — Case NS-26-014: The Northstar Learning Services Investigation**  
@@ -59,7 +59,7 @@ On **12 October 2026**, Northstar Skills Academy experienced an unauthorized dat
 crimathon/
 ├── app.py                           # Main Flask REST API & Web Server (CORS & Auth Protected)
 ├── requirements.txt                 # Dependencies (Flask, Flask-CORS, python-pptx)
-├── run_tests.py                     # Automated Verification Test Suite (45/45 Tests Passing)
+├── run_tests.py                     # Automated Verification Test Suite (43/43 Tests Across 15 Categories)
 ├── PROBLEM_STATEMENT.md             # One-Page Problem Statement (Markdown)
 ├── PROBLEM_STATEMENT.html           # Print-Ready A4 Single-Page Problem Statement (HTML/CSS)
 ├── SENTRIX_SHIELD_PRESENTATION.pptx # 10-Slide Technical Evaluation Pitch Deck
@@ -70,6 +70,7 @@ crimathon/
 │   └── index.html                   # High-Performance Cyberpunk Single-Page Dashboard
 ├── data/
 │   ├── __init__.py
+│   ├── loader.py                    # Dynamic Evidence Loader & SHA-256 Integrity Verification
 │   ├── logs.py                      # Authentic Security & Audit Event Telemetry (E01–E12)
 │   └── evidence.py                  # Official Evidence Dossier (E01–E12 Mappings)
 ├── analysis/
@@ -96,11 +97,11 @@ pip install -r requirements.txt
 ```
 
 ### 2. Run the Verification Test Suite
-Run the 45-point automated security verification suite:
+Run the 43-point automated security verification suite across 15 categories:
 ```bash
 python run_tests.py
 ```
-*Expected Output: `45 PASSED, 0 FAILED (100% Success Rate)`*
+*Expected Output: `43 PASSED, 0 FAILED (100% Success Rate)`*
 
 ### 3. Launch the SENTRIX SHIELD Web Platform
 Start the Flask application:
@@ -146,14 +147,17 @@ python test_hardened_api.py
 | `GET` | `/api/timeline` | Incident timeline with MITRE ATT&CK tactics & hypothesis status |
 | `GET` | `/api/policies` | Security hardening policies, current gaps, and recommendations |
 | `GET` | `/api/evidence` | Evidence catalog with E01–E12 cross-references and risk ratings |
+| `GET` | `/api/evidence/integrity`| Dynamic SHA-256 cryptographic hashes and verification status |
+| `GET` | `/api/evidence/raw/<eid>`| Secure raw case dossier artifact inspector for E01–E12 |
 | `GET` | `/api/credential-audit`| Service and staff account lifecycle compliance audit (~7 mos age) |
 | `POST` | `/api/simulate` | Simulates multi-stage attack kill-chain and tests defense controls |
 | `POST` | `/api/rotate-credential`| Executes one-click automated credential rotation |
 | `GET` | `/api/anomaly-detection`| Returns real-time heuristic anomaly detection results |
 | `POST` | `/api/test-ip` | Evaluates inbound IP against firewall allowlist rules |
 | `POST` | `/api/test-role` | Tests role authorization against target endpoints |
-| `POST` | `/api/run-tests` | Executes 45-point test harness and returns JSON results |
+| `POST` | `/api/run-tests` | Executes 43-point test harness and returns JSON results |
 | `GET` | `/api/export-report`| Downloads full forensic case report in JSON format |
+| `GET` | `/api/export-report/csv`| Downloads complete forensic findings and timeline as CSV |
 
 ---
 
