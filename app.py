@@ -21,7 +21,7 @@ from analysis.timeline import get_timeline, get_timeline_summary
 
 # --- Flask app ---------------------------------------------------------------
 app = Flask(__name__, static_folder="static")
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5000", "http://127.0.0.1:5000", "http://localhost:*", "http://127.0.0.1:*"]}})
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -58,14 +58,21 @@ def dashboard():
         "unique_anomaly_types": anomaly_report["unique_anomaly_types"],
         "overall_risk_score": anomaly_report["overall_risk_score"],
         "threat_level": anomaly_report["threat_level"],
+        "scoring_methodology": "Heuristic Severity Rating (0–100, measures policy impact, not compromise probability)",
         "evidence_items": len(EVIDENCE_CATALOG),
         "data_records_exposed": 2300,
-        "credential_age_months": 14,
+        "credential_created_date": "2026-03-04",
+        "credential_age_months": 7,
+        "compromised_key_id": "rc-prod-01",
+        "compromised_identity": "svc_rollcall",
+        "external_ip": "203.0.113.77",
         "summary": (
-            "Northstar Skills Academy experienced a credential-abuse incident "
-            "on 12 Oct 2026. The 'svc-rollcall' service account was used from "
-            "an external IP to harvest config secrets, make 300+ API calls, "
-            "and export 2,300 learner records from CampusVault."
+            "Northstar Skills Academy experienced an unauthorized data exfiltration incident "
+            "on 12 Oct 2026. The 'svc_rollcall' integration credential (rc-prod-01) was active "
+            "for approx. 7 months (created 2026-03-04) with no expiry date, no rotation schedule, "
+            "and no IP restriction. It was used from external IP 203.0.113.77 to read config (CHG-882), "
+            "execute bulk queries (R003/P003), trigger an export job (R004/P004), and download 2,300 "
+            "learner records twice from CampusVault (C003/C004)."
         ),
     })
 
@@ -133,75 +140,75 @@ def policies():
     policy_list = [
         {
             "id": "POL-001",
-            "title": "Credential Rotation Policy",
+            "title": "Credential Rotation & Lifetime Policy",
             "priority": "critical",
             "description": "Enforce automatic credential rotation every 90 days for all service accounts.",
-            "current_state": "No rotation policy — svc-rollcall credential was 14 months old.",
-            "recommendation": "Deploy automated secret manager (e.g., HashiCorp Vault) with 90-day max lifetime.",
-            "evidence_refs": ["EV-007"],
+            "current_state": "No rotation schedule — svc_rollcall (rc-prod-01) active approx. 7 months with 'expires: never' (E05 INT-01).",
+            "recommendation": "Deploy automated secret manager (e.g., HashiCorp Vault) with 90-day max TTL.",
+            "evidence_refs": ["E05", "E08", "E12"],
         },
         {
             "id": "POL-002",
-            "title": "MFA for Service Accounts",
+            "title": "Certificate & Token Authentication Security",
             "priority": "critical",
-            "description": "Require multi-factor or certificate-based authentication for all non-human identities.",
-            "current_state": "No MFA on service accounts.",
-            "recommendation": "Implement mutual TLS or OAuth2 client-credentials with short-lived tokens.",
-            "evidence_refs": ["EV-006"],
+            "description": "Require mutual TLS or short-lived signed tokens for non-human identities.",
+            "current_state": "Static unexpiring API token used over public internet without mTLS or certificate pinning.",
+            "recommendation": "Implement mTLS or OAuth2 client-credentials with short-lived tokens and device binding.",
+            "evidence_refs": ["E01", "E05"],
         },
         {
             "id": "POL-003",
-            "title": "Least-Privilege Access Control",
+            "title": "Least-Privilege Role Authorization",
             "priority": "critical",
-            "description": "Service accounts must have only the minimum permissions required.",
-            "current_state": "svc-rollcall had read+write+export — only read-only sync was needed.",
-            "recommendation": "Scope down to read-only attendance sync; remove export and config-write permissions.",
-            "evidence_refs": ["EV-009"],
+            "description": "Service accounts must have only the minimal permissions required for their operational purpose.",
+            "current_state": "svc_rollcall assigned 'learner.export' and 'learner.search' — only 'attendance.read' was required.",
+            "recommendation": "De-scope integration credentials strictly to attendance.read; revoke learner.export and learner.search.",
+            "evidence_refs": ["E02", "E05", "E08"],
         },
         {
             "id": "POL-004",
-            "title": "API Rate Limiting",
+            "title": "API Gateway Rate Limiting & Velocity Controls",
             "priority": "high",
             "description": "Enforce per-identity, per-IP rate limits on all public and internal APIs.",
-            "current_state": "No rate limiting — 300+ calls in 10 minutes went unchallenged.",
-            "recommendation": "Set 20 req/min per service account with progressive back-off and alerting.",
-            "evidence_refs": ["EV-003"],
+            "current_state": "No rate limiting — 4,642 total records traversed in under 3 minutes (R003, R004, R006).",
+            "recommendation": "Set 20 req/min per service account with progressive back-off and SIEM alerting.",
+            "evidence_refs": ["E03", "E08"],
         },
         {
             "id": "POL-005",
-            "title": "IP Whitelisting & Geo-Fencing",
-            "priority": "high",
-            "description": "Restrict API and admin access to known IP ranges.",
-            "current_state": "Firewall allowed traffic from non-whitelisted 203.92.45.112.",
-            "recommendation": "Implement strict allowlisting for service-account source IPs.",
-            "evidence_refs": ["EV-008"],
+            "title": "Source IP Allowlisting & Network Isolation",
+            "priority": "critical",
+            "description": "Restrict API and connector ingress strictly to documented internal subnets.",
+            "current_state": "Register INT-01 had 'ip_restriction: not configured', allowing requests from external IP 203.0.113.77.",
+            "recommendation": "Implement strict firewall and gateway allowlisting restricted to internal connector node 10.10.4.12.",
+            "evidence_refs": ["E05", "E09"],
         },
         {
             "id": "POL-006",
-            "title": "Real-Time SIEM Alerting",
+            "title": "Real-Time SIEM Anomaly Correlation",
             "priority": "critical",
-            "description": "Configure real-time alerts for bulk exports, off-hours access, and rate-limit breaches.",
-            "current_state": "No real-time alerting — breach undetected for ~8 hours.",
-            "recommendation": "Deploy SIEM rules with <5 min detection SLA for critical events.",
-            "evidence_refs": ["EV-010"],
+            "description": "Configure real-time alerts for bulk exports, off-hours access, and off-subnet requests.",
+            "current_state": "No real-time alerting — incident discovered hours later by Finance (HD-1069).",
+            "recommendation": "Deploy SIEM correlation rules with sub-second alerting for off-subnet service token usage.",
+            "evidence_refs": ["E06", "E08", "E11"],
         },
         {
             "id": "POL-007",
-            "title": "Data Export Approval Workflow",
-            "priority": "high",
-            "description": "Require admin approval for any bulk data export exceeding 100 records.",
-            "current_state": "No approval workflow — 2,300 records exported without authorisation.",
-            "recommendation": "Implement DLP policy requiring manager sign-off for large exports.",
-            "evidence_refs": ["EV-004"],
+            "title": "Bulk Export Approval & DLP Screening",
+            "priority": "critical",
+            "description": "Require dual-authorization and DLP screening for bulk exports exceeding 100 records.",
+            "current_state": "No approval workflow — 2,300 learner profiles exported and downloaded twice from CampusVault (C003, C004).",
+            "recommendation": "Enforce record-count ceiling (max 100) and dual-manager approval workflow for bulk exports.",
+            "evidence_refs": ["E04", "E08"],
         },
         {
             "id": "POL-008",
-            "title": "Configuration Access Monitoring",
+            "title": "Configuration Protection & Secret Segregation",
             "priority": "high",
-            "description": "Alert on any read of integration secrets from non-standard sources.",
-            "current_state": "Config reads from external IP were not flagged.",
-            "recommendation": "Encrypt secrets at rest; log and alert on every access; use JIT secret delivery.",
-            "evidence_refs": ["EV-002"],
+            "description": "Prevent exposure of credentials in tickets or configuration read events.",
+            "current_state": "Screenshot listed in ticket archive (HD-1058); integration settings read from external IP (CHG-882).",
+            "recommendation": "Encrypt secrets at rest; redact sensitive keys in tickets; alert on configuration reads from non-standard IPs.",
+            "evidence_refs": ["E06", "E08", "E11"],
         },
     ]
     return jsonify({
@@ -302,92 +309,91 @@ def credential_audit():
     audit_data = {
         "status": "simulated",
         "audit_date": "2026-10-12T12:00:00+05:30",
+        "scoring_methodology": "Heuristic Severity Rating (0–100, measures policy impact, not compromise probability)",
         "accounts_reviewed": 5,
         "accounts": [
             {
-                "account": "svc-rollcall",
+                "account": "svc_rollcall",
+                "client_id": "rollcall-prod",
+                "api_key_id": "rc-prod-01",
                 "type": "service",
-                "created": "2025-02-10",
-                "last_rotated": "2025-08-15",
-                "age_months": 14,
+                "created": "2026-03-04",
+                "age_months": 7,
+                "expires": "never",
+                "ip_restriction": "not configured",
                 "mfa_enabled": False,
-                "permissions": ["read", "write", "export"],
+                "permissions": ["attendance.read", "learner.search", "learner.export", "course.read"],
                 "compliant": False,
                 "issues": [
-                    "Credential not rotated in 14 months",
-                    "No MFA enforced",
-                    "Excessive permissions (read+write+export)",
-                    "No IP restriction on usage",
+                    "Created 2026-03-04 (~7 months active) with no scheduled rotation (E05 INT-01)",
+                    "No expiration configured (expires: never)",
+                    "Excessive permissions: 'learner.export' granted to an attendance sync connector",
+                    "No source IP restriction configured (allowed connection from 203.0.113.77)",
                 ],
-                "risk_score": 95,
+                "heuristic_score": 95,
             },
             {
-                "account": "svc-campusvault",
-                "type": "service",
-                "created": "2025-05-20",
-                "last_rotated": "2025-11-01",
-                "age_months": 11,
-                "mfa_enabled": False,
-                "permissions": ["read", "write"],
+                "account": "former.ajay",
+                "person_id": "EMP-004",
+                "role": "Former Support Technician",
+                "type": "former-staff",
+                "departure_date": "2026-09-30",
+                "last_auth": "2026-10-09T09:13:44+05:30",
                 "compliant": False,
                 "issues": [
-                    "Credential not rotated in 11 months",
-                    "No MFA enforced",
+                    "Account remained active post-departure (authenticated on 2026-10-09)",
+                    "Direct violation of NS-SEC-04 Rule 7 (former staff deprovisioning)",
+                    "Note: Demonstrates identity offboarding flaw; does not establish responsibility for external RollCall incident",
                 ],
-                "risk_score": 70,
+                "heuristic_score": 75,
             },
             {
-                "account": "admin@northstar.edu.in",
+                "account": "ananya.r",
+                "person_id": "EMP-001",
+                "role": "IT Operations Analyst",
                 "type": "human",
-                "created": "2024-01-15",
-                "last_rotated": "2026-09-20",
-                "age_months": 1,
+                "created": "2025-01-15",
                 "mfa_enabled": True,
-                "permissions": ["admin"],
                 "compliant": True,
                 "issues": [],
-                "risk_score": 10,
+                "heuristic_score": 15,
             },
             {
-                "account": "registrar@northstar.edu.in",
+                "account": "rahul.k",
+                "person_id": "EMP-002",
+                "role": "IT Administrator",
                 "type": "human",
-                "created": "2024-03-01",
-                "last_rotated": "2026-08-10",
-                "age_months": 2,
+                "created": "2024-06-01",
                 "mfa_enabled": True,
-                "permissions": ["read", "write"],
                 "compliant": True,
                 "issues": [],
-                "risk_score": 15,
+                "heuristic_score": 10,
             },
             {
-                "account": "svc-smtp-relay",
-                "type": "service",
-                "created": "2025-07-01",
-                "last_rotated": "2026-01-15",
-                "age_months": 9,
-                "mfa_enabled": False,
-                "permissions": ["send"],
-                "compliant": False,
-                "issues": [
-                    "Credential not rotated in 9 months",
-                    "No MFA enforced",
-                ],
-                "risk_score": 55,
+                "account": "meera.s",
+                "person_id": "EMP-003",
+                "role": "Finance Analyst",
+                "type": "human",
+                "created": "2025-04-10",
+                "mfa_enabled": True,
+                "compliant": True,
+                "issues": [],
+                "heuristic_score": 10,
             },
         ],
         "summary": {
-            "compliant": 2,
-            "non_compliant": 3,
+            "compliant": 3,
+            "non_compliant": 2,
             "critical_risk": 1,
             "high_risk": 1,
-            "medium_risk": 1,
             "recommendation": (
-                "Immediately rotate all service-account credentials. "
-                "Enforce 90-day rotation policy and MFA / mTLS for non-human identities."
+                "Immediately rotate svc_rollcall credential (INT-01), enforce strict 90-day TTL, "
+                "restrict source IP to 10.10.4.12, de-scope permissions to attendance.read, "
+                "and audit HR offboarding hooks to prevent former employee accounts from persisting."
             ),
         },
     }
+    return jsonify(audit_data)
     return jsonify(audit_data)
 
 

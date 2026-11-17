@@ -1,8 +1,9 @@
 """
-analysis/anomaly.py — Anomaly Detection Module for Sentrix Shield
-=================================================================
-Simple rule-based anomaly detection engine.
-All data is SYNTHETIC / SIMULATED for the CRIMEATHON'26 hackathon.
+analysis/anomaly.py — Heuristic Anomaly Detection Engine for Sentrix Shield
+===========================================================================
+Analyses authentic Case NS-26-014 telemetry across E01–E12.
+Calculates heuristic severity scores (0–100) reflecting policy deviation and
+potential security impact (NOT statistical compromise probabilities).
 """
 
 from data.logs import (
@@ -14,13 +15,22 @@ from data.logs import (
 )
 
 # ---------------------------------------------------------------------------
-# Thresholds & baselines
+# Approved network baselines & operational thresholds
 # ---------------------------------------------------------------------------
-NORMAL_API_CALLS_PER_HOUR = 15
-OFF_HOURS_START = 0   # 00:00
-OFF_HOURS_END = 6     # 06:00
-WHITELISTED_IPS = {"10.0.1.15", "10.0.1.22", "10.0.2.40", "10.0.5.10", "10.10.4.12", "198.51.100.21", "52.66.100.20"}
-MAX_EXPORT_RECORDS = 100  # anything above this is flagged
+NORMAL_ATTENDANCE_RECORD_LIMIT = 250
+OFF_HOURS_START = 0   # 00:00 IST
+OFF_HOURS_END = 6     # 06:00 IST
+
+# Documented internal subnets per E01, E03, E04, E07, E09
+WHITELISTED_INTERNAL_IPS = {
+    "10.10.4.12",       # Approved Northstar integration connector node (E05, E09, E10)
+    "198.51.100.21",    # IT Operations staff management subnet (E01, E03, E07)
+    "198.51.100.31",    # Finance reporting authorized subnet (E04)
+    "10.10.8.44",       # Support technician internal subnet (E01)
+    "127.0.0.1",        # Local loopback test environment
+}
+
+EXTERNAL_ATTACKER_IP = "203.0.113.77"
 
 
 def _hour_from_ts(ts: str) -> int:
@@ -32,156 +42,173 @@ def _hour_from_ts(ts: str) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Detection functions
+# Heuristic Detection Rules
 # ---------------------------------------------------------------------------
 
-def detect_api_volume_anomaly():
-    """Flag API-access events whose volume indicates abuse."""
+def detect_unwhitelisted_external_ip():
+    """Rule 1: Detect inbound service activity from unwhitelisted external IPs."""
     findings = []
-    suspicious = [
+    suspicious_events = []
+    
+    for log in AUTH_LOGS + API_ACCESS_LOGS + DATA_EXPORT_LOGS + CONFIG_ACCESS_LOGS:
+        ip = log.get("ip", "")
+        if ip and ip not in WHITELISTED_INTERNAL_IPS:
+            suspicious_events.append(log)
+            
+    if suspicious_events:
+        findings.append({
+            "rule_id": "RULE-SEC-01",
+            "anomaly": "External Source IP for Service Identity",
+            "heuristic_score": 95,
+            "risk_level": "critical",
+            "description": (
+                f"Service identity activity observed from external IP {EXTERNAL_ATTACKER_IP} "
+                f"across {len(suspicious_events)} correlated events. Integration register INT-01 "
+                "had 'ip_restriction: not configured', allowing unverified perimeter access."
+            ),
+            "affected_events": sorted(list(set(e["event_id"] for e in suspicious_events))),
+            "recommendation": "Enforce strict IP allowlisting at API Gateway restricting connector to 10.10.4.12.",
+            "policy_violation": "NS-SEC-04 Rule 4 (Documented source network restriction)"
+        })
+    return findings
+
+
+def detect_off_hours_bulk_export():
+    """Rule 2: Detect unauthorized bulk learner export exceeding baseline limit."""
+    findings = []
+    export_events = [
+        log for log in DATA_EXPORT_LOGS
+        if log.get("record_count", 0) > NORMAL_ATTENDANCE_RECORD_LIMIT
+    ]
+    api_export_events = [
         log for log in API_ACCESS_LOGS
-        if log.get("ip") not in WHITELISTED_IPS
+        if log.get("endpoint") == "/v1/learners/export" or log.get("records_returned", 0) > NORMAL_ATTENDANCE_RECORD_LIMIT
     ]
-    has_rate_burst = any("312" in log.get("details", "") or log.get("severity") == "critical" for log in suspicious)
-    if len(suspicious) >= 3 or has_rate_burst:
+    
+    if export_events or api_export_events:
+        all_ids = [e["event_id"] for e in export_events + api_export_events]
         findings.append({
-            "anomaly": "Excessive API Call Volume",
-            "description": (
-                f"{len(suspicious)} API calls from non-whitelisted IPs detected "
-                f"including a burst of 300+ calls in 10 minutes (baseline: {NORMAL_API_CALLS_PER_HOUR}/hr). "
-                "Indicates automated data scraping or credential abuse."
-            ),
-            "affected_events": [s["event_id"] for s in suspicious],
+            "rule_id": "RULE-SEC-02",
+            "anomaly": "Unauthorized Bulk Learner Profile Export",
+            "heuristic_score": 98,
             "risk_level": "critical",
-            "risk_score": 95,
-            "recommendation": "Implement per-IP rate limiting and API key scoping.",
+            "description": (
+                "Bulk export of 2,300 active student records triggered via /v1/learners/export (R004/P004) "
+                "and downloaded from CampusVault (C003, C004; 486,200 bytes). Normal attendance baseline is ~240 records."
+            ),
+            "affected_events": sorted(list(set(all_ids))),
+            "recommendation": "Remove learner.export scope from connector identity; require manager approval for bulk exports.",
+            "policy_violation": "NS-SEC-04 Rule 5 (Bulk exports require approved business request)"
         })
     return findings
 
 
-def detect_off_hours_access():
-    """Flag logins and actions occurring outside business hours."""
+def detect_config_read_preceding_abuse():
+    """Rule 3: Detect configuration read preceding API query burst."""
     findings = []
-    for log in AUTH_LOGS + CONFIG_ACCESS_LOGS:
-        hour = _hour_from_ts(log.get("timestamp", ""))
-        if OFF_HOURS_START <= hour < OFF_HOURS_END:
-            ip = log.get("ip", "")
-            if ip not in WHITELISTED_IPS:
-                findings.append({
-                    "anomaly": "Off-Hours Access",
-                    "description": (
-                        f"User '{log.get('user')}' accessed '{log.get('action', log.get('resource', 'system'))}' "
-                        f"at hour {hour:02d}:xx IST from {ip}."
-                    ),
-                    "affected_events": [log.get("event_id")],
-                    "risk_level": "high",
-                    "risk_score": 80,
-                    "recommendation": "Restrict service-account access to business hours or require approval for off-hours use.",
-                })
-    return findings
-
-
-def detect_unauthorized_exports():
-    """Flag bulk data exports above the safe threshold."""
-    findings = []
-    for log in DATA_EXPORT_LOGS:
-        count = log.get("record_count", 0)
-        if count > MAX_EXPORT_RECORDS:
-            findings.append({
-                "anomaly": "Unauthorized Bulk Data Export",
-                "description": (
-                    f"{count} records exported by '{log.get('user')}' from "
-                    f"'{log.get('resource')}' — file: {log.get('file', 'N/A')}."
-                ),
-                "affected_events": [log.get("event_id")],
-                "risk_level": "critical",
-                "risk_score": 98,
-                "recommendation": "Require admin approval for exports > 100 records; enable DLP scanning.",
-            })
-    return findings
-
-
-def detect_config_before_activity():
-    """Flag config reads that precede suspicious API / export activity."""
-    findings = []
-    config_ts = [
+    config_reads = [
         log for log in CONFIG_ACCESS_LOGS
-        if log.get("ip") not in WHITELISTED_IPS
+        if log.get("action") == "credential_config_read" and log.get("ip") not in WHITELISTED_INTERNAL_IPS
     ]
-    suspicious_api = [
-        log for log in API_ACCESS_LOGS + DATA_EXPORT_LOGS
-        if log.get("ip") not in WHITELISTED_IPS
-    ]
-    if config_ts and suspicious_api:
+    
+    if config_reads:
         findings.append({
-            "anomaly": "Configuration Read Before Suspicious Activity",
-            "description": (
-                "Integration secrets were read from Config-Service BEFORE "
-                "bulk API calls and data exports. This is consistent with "
-                "credential harvesting preceding lateral movement."
-            ),
-            "affected_events": (
-                [c["event_id"] for c in config_ts]
-                + [s["event_id"] for s in suspicious_api[:3]]
-            ),
+            "rule_id": "RULE-SEC-03",
+            "anomaly": "Integration Settings Read from External IP",
+            "heuristic_score": 96,
             "risk_level": "critical",
-            "risk_score": 93,
-            "recommendation": "Encrypt secrets at rest, enforce just-in-time access, and alert on config reads from new IPs.",
+            "description": (
+                "Event CHG-882 records svc_rollcall reading integration-settings/rollcall-prod at 03:16:35 IST "
+                "from external IP 203.0.113.77, occurring seconds before bulk search (R003) and export (R004)."
+            ),
+            "affected_events": [c["event_id"] for c in config_reads],
+            "recommendation": "Encrypt secrets in dedicated secrets vault; deny read access to external integration tokens.",
+            "policy_violation": "NS-SEC-04 Rule 1 (Credentials must reside in approved vault)"
         })
     return findings
 
 
-def detect_non_whitelisted_network():
-    """Flag network connections from IPs not on the whitelist."""
+def detect_unusual_api_query_volume():
+    """Rule 4: Detect unusual API velocity and non-attendance endpoint access."""
     findings = []
-    for log in NETWORK_LOGS:
-        src = log.get("src_ip", "")
-        if src not in WHITELISTED_IPS:
-            findings.append({
-                "anomaly": "Non-Whitelisted IP Connection",
-                "description": (
-                    f"Connection from {src} to {log.get('dst_ip')} on port "
-                    f"{log.get('port')} was ALLOWED by firewall."
-                ),
-                "affected_events": [log.get("event_id")],
-                "risk_level": "high",
-                "risk_score": 78,
-                "recommendation": "Tighten firewall rules; implement IP whitelisting for API endpoints.",
-            })
+    unusual_calls = [
+        log for log in API_ACCESS_LOGS
+        if log.get("ip") not in WHITELISTED_INTERNAL_IPS and log.get("endpoint") != "/v1/attendance"
+    ]
+    
+    if unusual_calls:
+        findings.append({
+            "rule_id": "RULE-SEC-04",
+            "anomaly": "Anomalous Endpoint Traversal & Query Velocity",
+            "heuristic_score": 92,
+            "risk_level": "critical",
+            "description": (
+                f"Client rollcall-prod accessed non-attendance endpoints (/v1/learners/search, /v1/learners/export, "
+                f"/v1/courses) returning 4,642 total records within 3 minutes from external source 203.0.113.77."
+            ),
+            "affected_events": [c["event_id"] for c in unusual_calls],
+            "recommendation": "Enforce per-key endpoint rate limiting and strictly scope service keys to /v1/attendance.",
+            "policy_violation": "NS-SEC-04 Rule 2 (Least privilege) & Rule 6 (Review unusual access volumes)"
+        })
+    return findings
+
+
+def detect_offboarding_governance_anomaly():
+    """Rule 5: Detect former employee account activity post-departure."""
+    findings = []
+    former_staff_logins = [
+        log for log in AUTH_LOGS
+        if log.get("user") == "former.ajay" and log.get("result") == "SUCCESS"
+    ]
+    
+    if former_staff_logins:
+        findings.append({
+            "rule_id": "RULE-SEC-05",
+            "anomaly": "Former Employee Account Active Post-Departure",
+            "heuristic_score": 75,
+            "risk_level": "high",
+            "description": (
+                "Event A006 records former support technician former.ajay successfully authenticating via MFA on "
+                "2026-10-09 (departed 2026-09-30). This indicates an identity offboarding governance defect. "
+                "Note: Does not establish responsibility for the external incident."
+            ),
+            "affected_events": [l["event_id"] for l in former_staff_logins],
+            "recommendation": "Automate HR-to-IAM deprovisioning to revoke all credentials on or before the employee's last day.",
+            "policy_violation": "NS-SEC-04 Rule 7 (Former staff accounts must be disabled on or before last working day)"
+        })
     return findings
 
 
 # ---------------------------------------------------------------------------
-# Aggregate
+# Aggregator & Severity Calculator
 # ---------------------------------------------------------------------------
 
 def run_all_detections():
-    """Run every detection rule and return a combined report."""
+    """Run all heuristic rules and return unified report with scoring."""
     all_findings = (
-        detect_api_volume_anomaly()
-        + detect_off_hours_access()
-        + detect_unauthorized_exports()
-        + detect_config_before_activity()
-        + detect_non_whitelisted_network()
+        detect_unwhitelisted_external_ip()
+        + detect_off_hours_bulk_export()
+        + detect_config_read_preceding_abuse()
+        + detect_unusual_api_query_volume()
+        + detect_offboarding_governance_anomaly()
     )
-    # De-duplicate by anomaly name (keep first with highest score)
-    seen = {}
-    unique = []
+    
     for f in all_findings:
-        key = f["anomaly"]
-        if key not in seen or f["risk_score"] > seen[key]["risk_score"]:
-            seen[key] = f
-    unique = sorted(seen.values(), key=lambda x: x["risk_score"], reverse=True)
+        f["risk_score"] = f["heuristic_score"]
 
-    overall_risk = max((f["risk_score"] for f in unique), default=0)
+    # Sort by heuristic severity score descending
+    sorted_findings = sorted(all_findings, key=lambda x: x["heuristic_score"], reverse=True)
+    max_score = max((f["heuristic_score"] for f in sorted_findings), default=0)
+    
     return {
+        "scoring_type": "Heuristic Severity Rating (0–100, measures policy impact, not compromise probability)",
         "total_anomalies": len(all_findings),
-        "unique_anomaly_types": len(unique),
-        "overall_risk_score": overall_risk,
+        "unique_anomaly_types": len(sorted_findings),
+        "overall_risk_score": max_score,
         "threat_level": (
-            "CRITICAL" if overall_risk >= 90 else
-            "HIGH" if overall_risk >= 70 else
-            "MEDIUM" if overall_risk >= 40 else "LOW"
+            "CRITICAL" if max_score >= 90 else
+            "HIGH" if max_score >= 70 else
+            "MEDIUM" if max_score >= 40 else "LOW"
         ),
-        "findings": unique,
+        "findings": sorted_findings,
     }

@@ -28,7 +28,7 @@ slides_data = [
             'Selected Track: DEFENSE (Preventive, Detective & Response Controls)',
             'Core Solution: Real-Time Anomaly Detection, Credential Lifecycle Management & Zero-Trust Defense',
             'Deliverables: One-Page Problem Statement + Complete Source Code + Demo Video + PPTX Deck',
-            'Evaluation Readiness: Complete Working Source Code + Local Hardened Simulation + Verification Test Suite'
+            'Evaluation Readiness: Complete Working Source Code + Local Hardened Simulation + 45/45 Test Suite'
         ]
     },
     {
@@ -38,10 +38,10 @@ slides_data = [
             'Incident Overview: Multi-stage security incident at Northstar Skills Academy affecting ~2,300 learner profiles.',
             'Trigger Events: Irregular attendance sync, sluggish portal access, and unauthorized learner-data export in CampusVault.',
             'Root Security Failures:',
-            '  * Credential Hygiene Failure: Service credential svc_rollcall (rc-prod-01) active for 14+ months without rotation (E05).',
+            '  * Credential Hygiene Failure: Service credential svc_rollcall (rc-prod-01) active approx. 7 months with expires: never and no rotation (E05).',
             '  * Excessive Privileges: Attendance integration held broad permissions (learner.search, learner.export) violating least-privilege (E05, E08).',
-            '  * Unrestricted Network Access: Integration API keys permitted requests from external, unwhitelisted IPs (203.0.113.77) (E03, E09).',
-            '  * Secret Spillage: IT support ticket HD-1058 archived an unredacted screenshot of integration configuration settings (E06).'
+            '  * Unrestricted Network Access: Integration API keys permitted requests from external, unwhitelisted IP 203.0.113.77 (E03, E09).',
+            '  * Investigated Exposure Hypothesis: Support ticket HD-1058 recorded screenshot attachment during troubleshooting (contents unverified) (E06).'
         ]
     },
     {
@@ -53,24 +53,24 @@ slides_data = [
             'E02 & E03 (ClassBridge & API Gateway): Events P003/R003 (2300 learner search) and P004/R004 (2300 learner export) at 03:16-03:17 IST.',
             'E04 (CampusVault): Events C002-C004 show listing and double download of learners-20261012.csv (486,200 bytes) via 203.0.113.77.',
             'E05 (Register): INT-01 shows permissions attendance.read; learner.search; learner.export; course.read with expiry=never and IP restriction=none.',
-            'E06 (HelpDesk): Ticket HD-1058 (09 Oct) contains config screenshot attachment; HD-1069 confirms unauthorized export discovered by Finance.',
-            'E08 (Security Policy): Direct violations of NS-SEC-04 Rules 1 (Vault storage), 2 (Least privilege), 3 (Rotation), and 4 (IP whitelist).'
+            'E06 (HelpDesk): Ticket HD-1058 (09 Oct) lists screenshot attachment; HD-1069 confirms unauthorized export discovered by Finance.',
+            'E01 & E07 (Identity Governance): A006 shows former.ajay authenticated post-departure; separate offboarding defect not responsible for incident.'
         ]
     },
     {
         'title': '3. Fact Differentiation: Confirmed vs. Unknowns',
-        'subtitle': 'Rigorous Forensic Separation of Direct Observations and Assumptions',
+        'subtitle': 'Rigorous Forensic Separation of Direct Observations and Hypotheses',
         'points': [
             'Confirmed Observations (Directly logged in evidence):',
             '  [CONFIRMED] Integration settings read from external IP 203.0.113.77 (CHG-882).',
             '  [CONFIRMED] 2,300 learner records searched and exported via API gateway using rc-prod-01 (R003, R004).',
             '  [CONFIRMED] 486 KB export file downloaded twice from CampusVault repository (C003, C004).',
             '  [CONFIRMED] Service account rc-prod-01 lacked expiry, rotation schedule, and IP restrictions (INT-01).',
-            'Strongly Supported Deductions:',
-            '  [SUPPORTED] Attacker leveraged exposed credentials (likely leaked via HD-1058 or CHG-882) from external host 203.0.113.77.',
-            'Assumptions & Unknowns (Explicitly not claimed):',
+            'Strongly Supported Hypotheses:',
+            '  [HYPOTHESIS] Attacker obtained valid credential externally and exploited absence of network and role boundaries.',
+            'Forensic Unknowns (Explicitly not claimed):',
             '  [UNKNOWN] Exact physical identity of the human operator behind 203.0.113.77.',
-            '  [UNKNOWN] Specific channel used to extract the key prior to CHG-882 (e.g. ticket archive scrap vs intercept).',
+            '  [UNKNOWN] Whether ticket HD-1058 screenshot actually contained plaintext secrets (contents unverified in evidence).',
             '  [UNKNOWN] Whether downloaded learner records were transferred onward or published.'
         ]
     },
@@ -96,13 +96,13 @@ slides_data = [
             'Module 1: Real-Time Telemetry Ingestion & SIEM Correlation Engine',
             '  * Correlates auth tokens, gateway access, configuration reads, and cloud storage audits in real time.',
             'Module 2: Heuristic & Rule-Based Anomaly Detection (AD Engine)',
+            '  * Scores severity using heuristic ratings (0-100) reflecting policy impact, not statistical probabilities.',
             '  * Off-subnet anomaly: flags external IP access for service accounts.',
-            '  * Velocity anomaly: triggers alert when API calls exceed baseline threshold (>50 calls/10 min).',
-            '  * Privilege anomaly: blocks unauthorized bulk learner export attempts.',
+            '  * Velocity anomaly: triggers alert when API calls exceed baseline threshold.',
             'Module 3: Dynamic Credential Lifecycle & Vault Enforcer',
             '  * Enforces mandatory 90-day rotation; provides 1-click simulated credential revocation & re-issue.',
             'Module 4: Zero-Trust Hardened API Gateway (Local Simulation)',
-            '  * Strict IP allowlisting (10.10.4.12 only), least-privilege role scoping, and strict export ceilings.'
+            '  * Strict IP allowlisting (10.10.4.12 only), least-privilege role scoping, and isolated export record ceilings.'
         ]
     },
     {
@@ -110,7 +110,7 @@ slides_data = [
         'subtitle': 'End-to-End Mitigation Cycle from Detection to Hardened State',
         'points': [
             'Step 1 - Ingestion & Parsing: Logs continuously streamed from ClassBridge, CampusVault, RollCall & Identity.',
-            'Step 2 - Correlation & Threat Scoring: Engine computes composite risk score (0-100) and assigns Threat Level.',
+            'Step 2 - Correlation & Heuristic Scoring: Engine computes composite severity score (0-100) and assigns Threat Level.',
             'Step 3 - Instant Alert Dispatch: Elevated risk triggers SIEM alerts (e.g. ALT-001 Unauthorized Off-Hours Config Read).',
             'Step 4 - Automated Defense Actions:',
             '  * Token Revocation: Invalidates compromised token rc-prod-01 instantly.',
@@ -124,40 +124,29 @@ slides_data = [
         'subtitle': 'High-Performance, Lightweight, Zero-Dependency Architecture',
         'points': [
             'Backend Stack:',
-            '  * Python 3.12 + Flask API Server with RESTful JSON endpoints.',
-            '  * Flask-CORS for secure client-server communication.',
+            '  * Python 3.12 + Flask API Server with RESTful JSON endpoints and CORS origin protection.',
             '  * Custom Heuristic Anomaly Detection & Timeline Correlation engine.',
             'Frontend Stack:',
-            '  * Single-Page Reactive Dashboard (HTML5, Modern CSS3 Grid/Flexbox, Vanilla ES6+ JavaScript).',
-            '  * Cyberpunk dark theme (#0a0e17) with live pulse indicators, canvas telemetry charts, and modal inspectors.',
+            '  * Single-Page Reactive SOC Dashboard (HTML5, Modern CSS3 Grid/Flexbox, Vanilla ES6+ JavaScript).',
+            '  * Cyberpunk dark theme with live radar sweep canvas, KPI cards, and modal inspectors.',
             'Local Simulation Suite (Hardened vs. Vulnerable):',
-            '  * Mock API Server running both vulnerable and hardened modes for zero-risk local validation.',
-            '  * Automated test harness validating 5 core security assertions.'
+            '  * Mock API Server testing both role boundaries and isolated export record ceilings (100 record limit).',
+            '  * Automated verification test harness validating 45 distinct security assertions.'
         ]
     },
     {
         'title': '8. Verification Results & Security Outcomes',
         'subtitle': 'Quantitative Proof of Defense Effectiveness via Automated Test Suite',
         'points': [
-            'Automated Hardened API Test Suite: 100% PASS RATE (5/5 assertions verified)',
+            'Automated Hardened API Test Suite: 100% PASS RATE (7/7 assertions verified)',
             '  [PASS] Attendance allowed from authorized internal connector (10.10.4.12) -> HTTP 200',
             '  [PASS] Learner search rejected for attendance role -> HTTP 403 Forbidden',
-            '  [PASS] Bulk learner export rejected (least-privilege restriction) -> HTTP 403 Forbidden',
+            '  [PASS] Bulk export rejected by role boundary -> HTTP 403 Forbidden',
             '  [PASS] Unapproved external source IP (203.0.113.77) blocked -> HTTP 403 Forbidden',
             '  [PASS] Invalid / revoked token denied -> HTTP 403 Forbidden',
-            'Platform Integration Tests: 100% PASS RATE across all 11 Flask API endpoints.',
-            'Attack Simulation Verification: Demonstrated full block of the kill-chain when defense controls active.'
-        ]
-    },
-    {
-        'title': '9. Future Roadmap & Production Scaling',
-        'subtitle': 'Extending SENTRIX SHIELD for Enterprise Education Infrastructure',
-        'points': [
-            'Phase 1: Enterprise Secret Management Integration (HashiCorp Vault / AWS Secrets Manager).',
-            'Phase 2: Automated Mutual TLS (mTLS) & Hardware Token Authentication for all B2B connectors.',
-            'Phase 3: Machine-Learning User & Entity Behavior Analytics (UEBA) for dynamic baseline profiling.',
-            'Phase 4: Automated SOAR (Security Orchestration, Automation, and Response) webhooks.',
-            'Phase 5: Granular Data Loss Prevention (DLP) with watermarking on all cloud repository exports.'
+            '  [PASS] ISOLATED EXPORT LIMIT: Bulk export > 100 blocked by record ceiling -> HTTP 400',
+            '  [PASS] ISOLATED EXPORT LIMIT: Small export <= 100 records permitted for authorized role -> HTTP 200',
+            'Overall Test Suite: 100% PASS RATE (45/45 Tests Passed across all 6 modules).'
         ]
     },
     {
@@ -165,7 +154,7 @@ slides_data = [
         'subtitle': 'CRIMEATHON 26 Selection Round | Team SENTRIX',
         'points': [
             'Deliverable 1: One-Page Problem Statement (Markdown & Print-Ready PDF / HTML)',
-            'Deliverable 2: Complete Working Source Code (Flask API, Frontend Dashboard, Test Suite, Simulation)',
+            'Deliverable 2: Complete Working Source Code (Flask API, Frontend Dashboard, 45/45 Test Suite)',
             'Deliverable 3: Live Verification Demo & Video Walkthrough Guide',
             'Deliverable 4: Comprehensive Technical Slide Deck (PPTX)',
             '',
@@ -215,7 +204,7 @@ for sdata in slides_data:
         
         if pt.startswith('  *') or pt.startswith('  [') or 'CONFIRMED' in pt or 'PASS' in pt or 'UNKNOWN' in pt:
             bp.font.size = Pt(13)
-            bp.font.color.rgb = YELLOW if 'UNKNOWN' in pt or 'FAIL' in pt else (GREEN if 'CONFIRMED' in pt or 'PASS' in pt else DIM_TEXT)
+            bp.font.color.rgb = YELLOW if 'UNKNOWN' in pt or 'HYPOTHESIS' in pt else (GREEN if 'CONFIRMED' in pt or 'PASS' in pt else DIM_TEXT)
         elif pt.endswith(':') or 'Overview:' in pt or 'Stack:' in pt or 'Results:' in pt or 'Deductions:' in pt or 'Deliverable' in pt:
             bp.font.size = Pt(15)
             bp.font.bold = True
@@ -227,4 +216,4 @@ for sdata in slides_data:
             bp.font.color.rgb = WHITE
 
 prs.save('SENTRIX_SHIELD_PRESENTATION.pptx')
-print('Successfully generated SENTRIX_SHIELD_PRESENTATION.pptx!')
+print('Successfully generated updated SENTRIX_SHIELD_PRESENTATION.pptx!')
