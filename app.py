@@ -8,12 +8,14 @@ Run:  python app.py
 
 import os
 import uuid
+import io
+import csv
+import ipaddress
+from functools import wraps
 from datetime import datetime, timezone, timedelta
 
 from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_cors import CORS
-import io
-import csv
 
 # --- internal modules -------------------------------------------------------
 from data.logs import get_all_logs, get_logs_by_category
@@ -24,9 +26,118 @@ from analysis.timeline import get_timeline, get_timeline_summary
 
 # --- Flask app ---------------------------------------------------------------
 app = Flask(__name__, static_folder="static")
-CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5000", "http://127.0.0.1:5000", "http://localhost:*", "http://127.0.0.1:*"]}})
+
+# Explicit CORS origin configuration — no wildcards
+TRUSTED_ORIGINS = [
+    "http://127.0.0.1:5000",
+    "http://localhost:5000"
+]
+CORS(app, resources={r"/api/*": {"origins": TRUSTED_ORIGINS}})
 
 IST = timezone(timedelta(hours=5, minutes=30))
+
+# --- Security Configuration & Role-Based Access Control (RBAC) ---------------
+VALID_API_TOKENS = {
+    os.environ.get("SENTRIX_ADMIN_TOKEN", "sentrix-admin-token-2026-auth"): {
+        "role": "admin",
+        "username": "soc_admin",
+        "description": "Full SOC Administrator Access"
+    },
+    os.environ.get("SENTRIX_ANALYST_TOKEN", "sentrix-analyst-token-2026-auth"): {
+        "role": "analyst",
+        "username": "soc_analyst",
+        "description": "SOC Security Analyst Access"
+    }
+}
+
+# Documented Internal Networks from Case Dossier E01, E05, E07, E08, E09
+CONFIGURED_INTERNAL_NETWORKS = [
+    ipaddress.ip_network("10.10.4.0/24"),      # Vendor integration connector subnet (E05, E09)
+    ipaddress.ip_network("198.51.100.0/24"),   # Staff & Finance management subnet (E01, E04, E07)
+    ipaddress.ip_network("10.10.8.0/24"),      # Support technician internal subnet (E01)
+    ipaddress.ip_network("127.0.0.0/8")        # Local loopback interface
+]
+APPROVED_CONNECTOR_HOST = ipaddress.ip_address("10.10.4.12")
+
+# Server-Side Role-Based Endpoint Access Matrix
+SERVER_RBAC_RULES = {
+    "attendance.read": {
+        "allowed_endpoints": ["/v1/attendance"],
+        "description": "Hardened connector role: restricted solely to reading attendance records"
+    },
+    "learner.search": {
+        "allowed_endpoints": ["/v1/attendance", "/v1/learners/search", "/v1/courses"],
+        "description": "Standard staff portal role: attendance, learner queries, courses"
+    },
+    "learner.export": {
+        "allowed_endpoints": ["/v1/attendance", "/v1/learners/search", "/v1/learners/export", "/v1/courses"],
+        "description": "Elevated export role: requires dual approval for records > 100"
+    },
+    "admin": {
+        "allowed_endpoints": ["/v1/attendance", "/v1/learners/search", "/v1/learners/export", "/v1/courses", "/v1/config"],
+        "description": "System administrator: full endpoint access"
+    }
+}
+
+
+def get_authenticated_user():
+    """Extract and validate bearer token or X-API-Key from request headers."""
+    auth_header = request.headers.get("Authorization", "").strip()
+    api_key_header = request.headers.get("X-API-Key", "").strip()
+    
+    token = None
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+    elif api_key_header:
+        token = api_key_header
+        
+    if not token:
+        return None
+        
+    return VALID_API_TOKENS.get(token)
+
+
+def require_auth(f):
+    """Decorator requiring a valid authentication token for protected routes."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        user = get_authenticated_user()
+        if not user:
+            return jsonify({
+                "status": "error",
+                "error": "UNAUTHORIZED",
+                "message": "Authentication required: Provide a valid Bearer token in the 'Authorization' header or 'X-API-Key'.",
+                "http_code": 401
+            }), 401
+        request.current_user = user
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def require_role(*required_roles):
+    """Decorator requiring specific role membership (e.g. 'admin')."""
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            user = get_authenticated_user()
+            if not user:
+                return jsonify({
+                    "status": "error",
+                    "error": "UNAUTHORIZED",
+                    "message": "Authentication required: Provide a valid Bearer token in the 'Authorization' header or 'X-API-Key'.",
+                    "http_code": 401
+                }), 401
+            if user.get("role") not in required_roles:
+                return jsonify({
+                    "status": "error",
+                    "error": "FORBIDDEN",
+                    "message": f"Insufficient privileges: Required role(s): {', '.join(required_roles)}, but authenticated as '{user.get('role')}'.",
+                    "http_code": 403
+                }), 403
+            request.current_user = user
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 # =============================================================================
 # Routes
@@ -227,69 +338,101 @@ def policies():
 
 # ----- Attack Simulation -----------------------------------------------------
 @app.route("/api/simulate", methods=["POST"])
+@require_auth
 def simulate():
     sim_id = str(uuid.uuid4())[:8]
     body = request.get_json(silent=True) or {}
     scenario = body.get("scenario", "credential-exposure")
 
+    # Observed events strictly mapped to authentic E01-E12 telemetry vs hypothetical simulation
     steps = [
         {
             "step": 1,
-            "action": "Authenticate with stale service credential",
-            "result": "SUCCESS — no MFA, credential accepted",
+            "type": "CONFIRMED_OBSERVATION",
+            "event_ids": ["A011", "N001"],
+            "evidence_refs": ["E01", "E09"],
+            "action": "External service token authentication (Event A011 from 203.0.113.77)",
+            "result": "ACCEPTED — Static token rc-prod-01 accepted; INT-01 lacked IP restriction",
             "risk": "critical",
+            "notes": "Direct observation: Service identity svc_rollcall authenticated from unwhitelisted external IP."
         },
         {
             "step": 2,
-            "action": "Read integration config (API keys & secrets)",
-            "result": "SUCCESS — secrets exposed in plaintext",
+            "type": "CONFIRMED_OBSERVATION",
+            "event_ids": ["CHG-882"],
+            "evidence_refs": ["E11"],
+            "action": "Integration settings read from external IP (Event CHG-882 at 03:16:35 IST)",
+            "result": "CONFIG ACCESSED — Resource read logged; plaintext secret exposure unverified in evidence",
             "risk": "critical",
+            "notes": "Direct observation: Settings resource read logged. Visual secret exposure remains unproven."
         },
         {
             "step": 3,
-            "action": "Burst 300+ attendance-sync API calls",
-            "result": "SUCCESS — no rate limiting triggered",
+            "type": "CONFIRMED_OBSERVATION",
+            "event_ids": ["P003", "R003"],
+            "evidence_refs": ["E02", "E03"],
+            "action": "Mass learner query via API gateway (Events P003/R003 returning 2,300 records)",
+            "result": "QUERY COMPLETED — 2,300 records returned; no gateway rate limits triggered",
             "risk": "critical",
+            "notes": "Direct observation: Broad enumeration query executed without velocity or threshold controls."
         },
         {
             "step": 4,
-            "action": "Bulk-export 2,300 learner records from CampusVault",
-            "result": "SUCCESS — no approval workflow, no DLP alert",
+            "type": "CONFIRMED_OBSERVATION",
+            "event_ids": ["P004", "R004", "CHG-883"],
+            "evidence_refs": ["E02", "E03", "E11"],
+            "action": "API export job creation (Events R004/P004 generating learners-20261012.csv)",
+            "result": "EXPORT JOB CREATED — Generated 486,200-byte archive in CampusVault (Event CHG-883)",
             "risk": "critical",
+            "notes": "Direct observation: Distinguishes API export job creation from subsequent storage download."
         },
         {
             "step": 5,
-            "action": "Download export file to external endpoint",
-            "result": "SUCCESS — firewall allowed outbound transfer",
+            "type": "CONFIRMED_OBSERVATION",
+            "event_ids": ["C003", "C004"],
+            "evidence_refs": ["E04"],
+            "action": "CampusVault archive downloads (Events C003 at 03:21:03 & C004 at 03:24:48)",
+            "result": "DOWNLOADED TWICE — 486,200 bytes transferred per event to external host 203.0.113.77",
             "risk": "critical",
+            "notes": "Direct observation: Repeated file exfiltration to external destination without egress DLP."
         },
+        {
+            "step": 6,
+            "type": "HYPOTHETICAL_SIMULATION",
+            "event_ids": ["HD-1058", "SIM-HYP"],
+            "evidence_refs": ["E06", "E12"],
+            "action": "[HYPOTHETICAL] Pre-incident credential exposure opportunity",
+            "result": "UNVERIFIED MECHANISM — Screenshot attached in ticket HD-1058; actual leak vector unknown",
+            "risk": "medium",
+            "notes": "Hypothetical reconstruction only: Case dossier does not provide screenshot contents."
+        }
     ]
 
     controls_tested = [
-        {"control": "MFA on service accounts", "status": "FAIL"},
-        {"control": "Credential rotation policy", "status": "FAIL"},
-        {"control": "API rate limiting", "status": "FAIL"},
-        {"control": "IP whitelisting", "status": "FAIL"},
-        {"control": "Data export approval", "status": "FAIL"},
-        {"control": "Real-time alerting", "status": "FAIL"},
-        {"control": "Least-privilege access", "status": "FAIL"},
-        {"control": "Config encryption at rest", "status": "FAIL"},
+        {"control": "Source IP Allowlisting (Rule 4: Restrict to 10.10.4.12)", "baseline_status": "FAIL", "hardened_status": "PASS"},
+        {"control": "Least-Privilege Scoping (Rule 2: Restrict to attendance.read)", "baseline_status": "FAIL", "hardened_status": "PASS"},
+        {"control": "Bulk Export Record Ceiling (Rule 5: Cap at 100 records + approval)", "baseline_status": "FAIL", "hardened_status": "PASS"},
+        {"control": "Credential Rotation & TTL (Rule 3: 90-day Vault TTL)", "baseline_status": "FAIL", "hardened_status": "PASS"},
+        {"control": "API Velocity Controls (Rule 6: 20 req/min limit)", "baseline_status": "FAIL", "hardened_status": "PASS"},
+        {"control": "Real-Time SIEM Alerting (Sub-second off-subnet alert)", "baseline_status": "FAIL", "hardened_status": "PASS"},
     ]
 
     return jsonify({
         "status": "simulated",
         "simulation_id": sim_id,
         "scenario": scenario,
+        "operator": request.current_user["username"],
         "timestamp": datetime.now(IST).isoformat(),
-        "result": "BREACH_SUCCESSFUL",
+        "result": "VULNERABLE_BASELINE_BREACH_REPLICATED",
+        "simulation_label": "HYPOTHETICAL ATTACK RECONSTRUCTION & DEFENSE TEST",
         "steps": steps,
         "controls_tested": controls_tested,
-        "controls_passed": 0,
-        "controls_failed": len(controls_tested),
+        "controls_passed_under_hardened": len(controls_tested),
+        "controls_failed_under_vulnerable": len(controls_tested),
         "overall_verdict": (
-            "All 8 security controls FAILED. The simulated attack replicated "
-            "the full kill chain from credential abuse to data exfiltration "
-            "without triggering any defensive alert."
+            "Under the vulnerable baseline, all security controls failed to prevent unauthorized access. "
+            "Under SENTRIX SHIELD's Zero-Trust controls, the attack is intercepted at Step 1 (IP Allowlist drop) "
+            "and Step 4 (Export Role Boundary / Record Limit Ceiling)."
         ),
     })
 
@@ -433,23 +576,32 @@ def credential_audit():
     return jsonify(audit_data)
 
 
-# ----- Credential Rotation (Simulated) ----------------------------------------
+# ----- Credential Rotation (Simulated Demonstration) -------------------------
 @app.route("/api/rotate-credential", methods=["POST"])
+@require_role("admin")
 def rotate_credential():
+    if not request.is_json:
+        return jsonify({"error": "BAD_REQUEST", "message": "Request body must be valid JSON"}), 400
+
     body = request.get_json(silent=True) or {}
-    account = body.get("account", "svc-rollcall")
+    account = body.get("account", "svc_rollcall")
+    if not isinstance(account, str) or not account.replace("_", "").replace("-", "").isalnum():
+        return jsonify({"error": "BAD_REQUEST", "message": "Field 'account' must be a valid alphanumeric identifier"}), 400
+
     new_id = str(uuid.uuid4())[:12]
     return jsonify({
-        "status": "simulated",
+        "status": "SIMULATED_DEMONSTRATION",
+        "simulation_mode": True,
         "account": account,
-        "action": "CREDENTIAL_ROTATED",
-        "new_credential_id": f"cred-{new_id}",
+        "action": "SIMULATED_CREDENTIAL_ROTATION",
+        "mock_new_credential_id": f"cred-sim-{new_id}",
         "rotated_at": datetime.now(IST).isoformat(),
-        "next_rotation_due": "90 days",
-        "message": (
-            f"Credential for '{account}' has been rotated (simulated). "
-            "Old credential revoked. New credential issued with 90-day expiry."
-        ),
+        "policy_rotation_interval": "90 days",
+        "authenticated_operator": request.current_user["username"],
+        "notice": (
+            "SIMULATION ONLY: No live HashiCorp Vault or production secrets manager is connected. "
+            "This response demonstrates the SOP workflow and parameter specification required for automated credential rotation."
+        )
     })
 
 
@@ -464,56 +616,81 @@ def anomaly_detection():
 # ----- Advanced Interactive Defense Tools ------------------------------------
 @app.route("/api/test-ip", methods=["POST"])
 def test_ip():
+    if not request.is_json:
+        return jsonify({"error": "BAD_REQUEST", "message": "Request body must be valid JSON"}), 400
+
     body = request.get_json(silent=True) or {}
-    ip = body.get("ip", "").strip()
-    whitelisted = {"10.10.4.12", "198.51.100.21", "127.0.0.1", "10.0.1.15", "10.0.5.10"}
-    
-    if not ip:
-        return jsonify({"error": "IP address required"}), 400
+    ip_raw = body.get("ip")
+    if not ip_raw or not isinstance(ip_raw, str):
+        return jsonify({"error": "BAD_REQUEST", "message": "Field 'ip' is required and must be a valid IP string"}), 400
         
-    is_allowed = ip in whitelisted or ip.startswith("10.10.4.") or ip.startswith("198.51.100.")
-    if is_allowed:
+    ip_str = ip_raw.strip()
+    try:
+        target_ip = ipaddress.ip_address(ip_str)
+    except ValueError:
         return jsonify({
-            "ip": ip,
+            "error": "INVALID_IP_FORMAT",
+            "message": f"'{ip_str}' is not a valid IPv4 or IPv6 address per RFC standards.",
+            "http_code": 400
+        }), 400
+        
+    # Rigorous check against configured internal subnets
+    matched_network = next((net for net in CONFIGURED_INTERNAL_NETWORKS if target_ip in net), None)
+    
+    if matched_network:
+        return jsonify({
+            "ip": str(target_ip),
             "status": "ALLOWED",
             "action": "PERMIT_INGRESS",
             "rule": "RULE-FW-ALLOW-INTERNAL",
-            "reason": f"IP {ip} belongs to approved internal subnet whitelist (Northstar Operations).",
+            "matched_network": str(matched_network),
+            "reason": f"IP {target_ip} falls within configured authorized network {matched_network}.",
             "risk_score": 0
         })
     else:
         return jsonify({
-            "ip": ip,
+            "ip": str(target_ip),
             "status": "BLOCKED",
             "action": "DROP_AND_SIEM_ALERT",
             "rule": "RULE-FW-DROP-EXTERNAL",
-            "reason": f"IP {ip} is an untrusted external network. Zero-Trust perimeter dropped inbound traffic.",
+            "reason": f"IP {target_ip} does not match any configured authorized internal network. Zero-Trust perimeter drops inbound traffic.",
             "risk_score": 95,
-            "siem_alert": "ALT-NET-09: Ingress attempt from unwhitelisted source address"
+            "siem_alert": "ALT-NET-09: Unauthorized ingress attempt from unwhitelisted source address"
         })
 
 
 @app.route("/api/test-role", methods=["POST"])
 def test_role():
+    if not request.is_json:
+        return jsonify({"error": "BAD_REQUEST", "message": "Request body must be valid JSON"}), 400
+
     body = request.get_json(silent=True) or {}
-    role = body.get("role", "attendance.read")
-    endpoint = body.get("endpoint", "/v1/attendance")
+    role = body.get("role")
+    endpoint = body.get("endpoint")
     
-    role_permissions = {
-        "attendance.read": ["/v1/attendance"],
-        "learner.search": ["/v1/attendance", "/v1/learners/search", "/v1/courses"],
-        "learner.export": ["/v1/attendance", "/v1/learners/search", "/v1/learners/export", "/v1/courses"],
-        "admin": ["/v1/attendance", "/v1/learners/search", "/v1/learners/export", "/v1/courses", "/v1/config"]
-    }
-    
-    allowed_endpoints = role_permissions.get(role, [])
-    permitted = endpoint in allowed_endpoints
+    if not role or not isinstance(role, str):
+        return jsonify({"error": "BAD_REQUEST", "message": "Field 'role' is required"}), 400
+    if not endpoint or not isinstance(endpoint, str):
+        return jsonify({"error": "BAD_REQUEST", "message": "Field 'endpoint' is required"}), 400
+
+    role = role.strip()
+    endpoint = endpoint.strip()
+
+    if role not in SERVER_RBAC_RULES:
+        return jsonify({
+            "error": "INVALID_ROLE",
+            "message": f"Role '{role}' is unrecognized. Valid roles: {list(SERVER_RBAC_RULES.keys())}"
+        }), 400
+        
+    rule_info = SERVER_RBAC_RULES[role]
+    permitted = endpoint in rule_info["allowed_endpoints"]
     
     return jsonify({
         "role": role,
         "endpoint": endpoint,
         "status": "PERMITTED" if permitted else "DENIED_403",
         "http_code": 200 if permitted else 403,
+        "role_description": rule_info["description"],
         "reason": (
             f"Role '{role}' is authorized to access '{endpoint}'."
             if permitted else
@@ -524,6 +701,7 @@ def test_role():
 
 
 @app.route("/api/run-tests", methods=["POST"])
+@require_role("admin", "analyst")
 def run_tests_api():
     """Runs test assertions and returns structured JSON results for the frontend lab."""
     import subprocess, sys, re
@@ -540,6 +718,7 @@ def run_tests_api():
         return jsonify({
             "status": "completed",
             "exit_code": proc.returncode,
+            "operator": request.current_user["username"],
             "total": total,
             "passed": passes,
             "failed": fails,
@@ -551,6 +730,7 @@ def run_tests_api():
 
 
 @app.route("/api/export-report")
+@require_auth
 def export_report():
     """Generates complete forensic case report in JSON format."""
     anomaly_data = run_all_detections()
@@ -566,14 +746,20 @@ def export_report():
         "incident_date": "2026-10-12",
         "threat_level": anomaly_data["threat_level"],
         "overall_risk_score": anomaly_data["overall_risk_score"],
+        "records_logged_in_export": 2300,
         "records_compromised": 2300,
+        "records_logged_note": "2,300 learner records logged in export telemetry (P004/R004); exact unique individual count is not proven beyond the logged record count.",
         "exfiltration_size_bytes": 486200,
         "compromised_identity": "svc_rollcall (rc-prod-01)",
+        "unauthorized_external_ip": "203.0.113.77",
         "external_attacker_ip": "203.0.113.77",
         "root_cause_summary": (
             "Service identity 'svc_rollcall' operated with unexpiring, unrotated credentials (~7 months active, "
             "created 2026-03-04 with expires: never), excessive permissions ('learner.export'), and unrestricted "
-            "network ingress, enabling external attacker at 203.0.113.77 to query and download 2,300 learner records."
+            "network ingress, enabling unauthorized external access and download from 203.0.113.77. API export job "
+            "creation (R004/P004/CHG-883) produced a 486,200-byte archive in CampusVault, which was subsequently downloaded "
+            "twice (C003, C004). Support ticket HD-1058 recorded a screenshot attachment, but its visual contents and "
+            "the initial credential exposure mechanism remain unverified and unknown in the case evidence."
         ),
         "evidence_inventory": EVIDENCE_CATALOG,
         "incident_timeline": timeline_data,
@@ -590,6 +776,7 @@ def export_report():
 
 
 @app.route("/api/export-report/csv")
+@require_auth
 def export_report_csv():
     """Generates complete forensic case findings and timeline as a downloadable CSV."""
     anomaly_data = run_all_detections()
@@ -652,4 +839,4 @@ if __name__ == "__main__":
     print("  CRIMEATHON'26 Hackathon | Northstar Skills Academy")
     print("  All data is SYNTHETIC / SIMULATED")
     print("=" * 60)
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False)

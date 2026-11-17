@@ -136,7 +136,7 @@ EVIDENCE_CATALOG = [
             "Ticket HD-1058 records IT Analyst Ananya Raman noting that vendor support requested the integration "
             "client identifier and a screenshot of the configuration page, with a screenshot attachment listed in the "
             "ticket archive. IMPORTANT: The screenshot's actual contents are not provided in the evidence, so it is UNKNOWN "
-            "whether it exposed plaintext secrets. Exposure via this ticket is an investigated hypothesis, NOT a confirmed fact. "
+            "whether it exposed secrets. Exposure via this ticket is an investigated hypothesis, NOT a confirmed fact. "
             "Separately, ticket HD-1069 confirms Finance discovered the unexpected learner export on 12-Oct at 09:15 IST."
         ),
         "indicators": [

@@ -28,7 +28,7 @@ The table below correlates confirmed events directly from the official case doss
 ### 3. Confirmed Observations vs. Assumptions & Unknowns
 * **Direct Observations (Confirmed):** API key `rc-prod-01` was used from external IP `203.0.113.77` to read configuration (`CHG-882`), trigger bulk export (`R004`), and download 2,300 learner records twice from CampusVault (`C003`, `C004`). Integration `INT-01` had no expiry and no IP restriction.
 * **Investigated Hypotheses (Supported):** Credential was obtained externally (exposure during ticket exchange or config harvesting).
-* **Forensic Unknowns (Explicitly Not Claimed):** Physical human identity behind `203.0.113.77`; whether the screenshot attachment in `HD-1058` actually revealed plaintext secrets; and whether exfiltrated records were distributed onward.
+* **Forensic Unknowns (Explicitly Not Claimed):** Physical human identity behind `203.0.113.77`; whether the screenshot attachment in `HD-1058` actually revealed secrets; and whether exfiltrated records were distributed onward.
 
 ### 4. Technical & Business Impact
 * **Technical:** Bulk exfiltration of 2,300 learner PII records; total bypass of network and role boundaries; lack of forensic alerting.

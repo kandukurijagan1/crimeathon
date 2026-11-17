@@ -843,7 +843,7 @@ footer {
   <button data-tab="anomaly">🧠 AI &amp; SIEM Engine</button>
   <button data-tab="defense">🔒 Zero-Trust Controls</button>
   <button data-tab="simulate">⚔️ Attack Kill-Chain</button>
-  <button data-tab="testlab">🧪 Automated Test Lab (43/43 PASS)</button>
+  <button data-tab="testlab">🧪 Automated Test Lab (60/60 PASS)</button>
 </nav>
 
 <!-- MAIN APP BODY -->
@@ -1182,31 +1182,31 @@ footer {
       <div class="killchain-stage" id="stage1">
         <div class="stage-icon">🔑</div>
         <div class="stage-name">1. Credential Ingress</div>
-        <div class="stage-desc">Token auth via stale key from external IP 203.0.113.77</div>
-        <div class="stage-defense-pill">Firewall Drop &amp; MFA</div>
+        <div class="stage-desc">Token auth via rc-prod-01 from external IP 203.0.113.77 (A011, N001)</div>
+        <div class="stage-defense-pill">Firewall Drop &amp; Allowlist</div>
       </div>
       <div class="killchain-stage" id="stage2">
         <div class="stage-icon">⚙️</div>
-        <div class="stage-name">2. Config Harvesting</div>
-        <div class="stage-desc">Read of integration settings (CHG-882)</div>
+        <div class="stage-name">2. Config Read</div>
+        <div class="stage-desc">Read of integration settings (CHG-882; plaintext secrets unverified)</div>
         <div class="stage-defense-pill">Vault Encryption &amp; JIT</div>
       </div>
       <div class="killchain-stage" id="stage3">
         <div class="stage-icon">⚡</div>
-        <div class="stage-name">3. Bulk API Query</div>
-        <div class="stage-desc">300+ requests dumping 2,300 learner profiles</div>
+        <div class="stage-name">3. Mass Learner Query</div>
+        <div class="stage-desc">Mass query across 2,300 learner records (P003, R003)</div>
         <div class="stage-defense-pill">Rate Limiting (20/min)</div>
       </div>
       <div class="killchain-stage" id="stage4">
         <div class="stage-icon">📦</div>
         <div class="stage-name">4. Export Job Creation</div>
-        <div class="stage-desc">POST /v1/learners/export creates 486 KB CSV</div>
+        <div class="stage-desc">POST /v1/learners/export creates 486 KB CSV (P004, R004, CHG-883)</div>
         <div class="stage-defense-pill">Least-Privilege 403</div>
       </div>
       <div class="killchain-stage" id="stage5">
         <div class="stage-icon">☁️</div>
         <div class="stage-name">5. Cloud Exfiltration</div>
-        <div class="stage-desc">Double download of archive from CampusVault</div>
+        <div class="stage-desc">Double download of archive from CampusVault (C003, C004)</div>
         <div class="stage-defense-pill">Dual-Approval DLP</div>
       </div>
     </div>
@@ -1222,7 +1222,7 @@ footer {
 
 
   <!-- ========================================================================
-       TAB 7: AUTOMATED TEST LAB (43/43 PASSING)
+       TAB 7: AUTOMATED TEST LAB (60/60 PASSING)
        ======================================================================== -->
   <section id="tab-testlab" class="tab-pane">
     <div class="glass" style="padding:24px;margin-bottom:24px;">
@@ -1230,22 +1230,22 @@ footer {
         <div>
           <h2 style="font-size:18px;color:#fff;margin-bottom:4px;">🧪 Automated Verification &amp; Compliance Test Lab</h2>
           <p style="font-size:13px;color:var(--text-muted);">
-            Executes the complete 15-category 43-point test suite covering dynamic evidence SHA-256 integrity, ground truth alignment, mock API gateway controls, isolated record ceilings, and live REST endpoints.
+            Executes the complete 20-category 60-point security test suite covering API Bearer/Key authentication, RBAC permission boundaries, input validation, dynamic evidence SHA-256 integrity, ground truth alignment, and mock gateway isolation.
           </p>
         </div>
-        <button class="btn-action" id="runTestLabBtn" style="padding:12px 28px;">▶️ Run 43 Automated Tests</button>
+        <button class="btn-action" id="runTestLabBtn" style="padding:12px 28px;">▶️ Run 60 Automated Tests</button>
       </div>
 
       <div class="kpi-grid" style="margin-top:24px;margin-bottom:0;">
         <div class="glass kpi-card safe">
           <div class="kpi-title"><span>Verification Status</span></div>
           <div class="kpi-value safe" id="testLabStatus">100% PASS</div>
-          <div class="kpi-desc">15/15 Categories Verified</div>
+          <div class="kpi-desc">20/20 Security Categories</div>
         </div>
         <div class="glass kpi-card info">
           <div class="kpi-title"><span>Tests Executed</span></div>
-          <div class="kpi-value info" id="testLabTotal">43 / 43</div>
-          <div class="kpi-desc">Evidence Integrity &amp; Defense Controls</div>
+          <div class="kpi-value info" id="testLabTotal">60 / 60</div>
+          <div class="kpi-desc">Auth, RBAC, Inputs &amp; Controls</div>
         </div>
         <div class="glass kpi-card safe">
           <div class="kpi-title"><span>Hardened Gateway Tests</span></div>
@@ -1253,9 +1253,9 @@ footer {
           <div class="kpi-desc">Isolated Limits &amp; Roles</div>
         </div>
         <div class="glass kpi-card safe">
-          <div class="kpi-title"><span>REST API Endpoints</span></div>
-          <div class="kpi-value safe">11 / 11 PASS</div>
-          <div class="kpi-desc">HTTP 200 OK Response</div>
+          <div class="kpi-title"><span>Auth &amp; RBAC Negative Tests</span></div>
+          <div class="kpi-value safe">8 / 8 PASS</div>
+          <div class="kpi-desc">HTTP 401 &amp; 403 Enforced</div>
         </div>
       </div>
     </div>
@@ -1780,33 +1780,38 @@ document.getElementById('testRoleBtn').addEventListener('click', async () => {
   } catch (e) {}
 });
 
-// Interactive Tool 3: Vault Rotation Simulator
+// Interactive Tool 3: Vault Rotation Simulator (Simulated Demonstration)
 document.getElementById('rotateTokenBtn').addEventListener('click', async () => {
   sfxClick();
   const account = document.getElementById('rotateAccountSelect').value;
   const out = document.getElementById('rotateTokenOutput');
   out.style.display = 'block';
   out.className = 'tool-output success show';
-  out.innerText = 'Contacting HashiCorp Vault API... Generating 256-bit entropy token...';
+  out.innerText = 'Simulating HashiCorp Vault API invocation... Generating 256-bit entropy token...';
 
   try {
     const res = await fetch('/api/rotate-credential', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer sentrix-admin-token-2026-auth'
+      },
       body: JSON.stringify({ account })
     });
     const data = await res.json();
     sfxSuccess();
     out.innerHTML = `
-      <strong>✔ CREDENTIAL ROTATION COMPLETE</strong><br>
+      <strong>✔ [SIMULATED DEMONSTRATION] CREDENTIAL ROTATION WORKFLOW</strong><br>
       Account: <code>${data.account}</code><br>
-      New Secret Token ID: <code>${data.new_credential_id}</code><br>
+      Mock New Token ID: <code>${data.mock_new_credential_id || data.new_credential_id}</code><br>
       Issued At: ${data.rotated_at}<br>
-      Next Rotation Schedule: 90 Days (Enforced)<br>
-      <em>Old key rc-prod-01 has been permanently invalidated.</em>
+      Policy Rotation Schedule: 90 Days (Enforced)<br>
+      <em style="color:var(--neon-yellow);">Notice: ${data.notice || 'Simulated demonstration only. No live HashiCorp Vault is connected.'}</em>
     `;
-    showToast(`Token for ${account} successfully rotated!`, 'success');
-  } catch (e) {}
+    showToast(`Simulated Token Rotation for ${account} completed`, 'success');
+  } catch (e) {
+    out.innerText = 'Error executing simulated rotation.';
+  }
 });
 
 // Attack Kill-Chain Simulator
@@ -1833,11 +1838,11 @@ document.getElementById('runSimulationBtn').addEventListener('click', async () =
     });
     playTone(350 + i * 50, 'sawtooth', 0.08);
 
-    if (i === 1) logStep('STAGE 1: Ingress from 203.0.113.77 accepted (No IP whitelist enforced).', 'var(--neon-red)');
-    if (i === 2) logStep('STAGE 2: CHG-882 executed — secrets harvested in plaintext.', 'var(--neon-red)');
-    if (i === 3) logStep('STAGE 3: 312 API requests flooded /v1/attendance (No rate limit).', 'var(--neon-red)');
-    if (i === 4) logStep('STAGE 4: Learner export job created for 2,300 profiles (Excessive permissions).', 'var(--neon-red)');
-    if (i === 5) logStep('STAGE 5: Double download of learners-20261012.csv completed. BREACH SUCCEEDED.', 'var(--neon-red)');
+    if (i === 1) logStep('[CONFIRMED TELEMETRY] STAGE 1: Ingress from 203.0.113.77 accepted (INT-01 lacked IP whitelist).', 'var(--neon-red)');
+    if (i === 2) logStep('[CONFIRMED TELEMETRY] STAGE 2: CHG-882 executed — integration settings read (secret contents unverified).', 'var(--neon-red)');
+    if (i === 3) logStep('[CONFIRMED TELEMETRY] STAGE 3: P003/R003 executed — mass query across 2,300 learner records.', 'var(--neon-red)');
+    if (i === 4) logStep('[CONFIRMED TELEMETRY] STAGE 4: P004/R004 & CHG-883 — export job created for 2,300 learner records.', 'var(--neon-red)');
+    if (i === 5) logStep('[CONFIRMED TELEMETRY] STAGE 5: C003 & C004 — double download of learners-20261012.csv completed.', 'var(--neon-red)');
   }
   showToast('Simulated Breach Succeeded under Legacy Settings', 'error');
 });
@@ -1862,7 +1867,7 @@ document.getElementById('runHardenedSimBtn').addEventListener('click', async () 
   st1.classList.add('mitigated');
   st1.classList.remove('active');
   playTone(880, 'sine', 0.1);
-  logStep('STAGE 1 INTERCEPTED: Source IP 203.0.113.77 blocked by Zero-Trust perimeter. Packets dropped.', 'var(--neon-green)');
+  logStep('STAGE 1 INTERCEPTED: Source IP 203.0.113.77 blocked by Zero-Trust perimeter. Ingress dropped.', 'var(--neon-green)');
   
   await new Promise(r => setTimeout(r, 600));
   const st4 = document.getElementById('stage4');
@@ -1872,7 +1877,7 @@ document.getElementById('runHardenedSimBtn').addEventListener('click', async () 
   
   await new Promise(r => setTimeout(r, 600));
   logStep('DEFENSE OUTCOME: Kill-chain severed at perimeter. 2,300 learner records secured.', 'var(--neon-green)');
-  showToast('Attack Successfully Severed by SENTRIX SHIELD!', 'success');
+  showToast('Unauthorized Access Successfully Severed by SENTRIX SHIELD!', 'success');
 });
 
 // Automated Test Lab
@@ -1880,12 +1885,18 @@ document.getElementById('runTestLabBtn').addEventListener('click', async () => {
   sfxClick();
   const btn = document.getElementById('runTestLabBtn');
   btn.disabled = true;
-  btn.innerText = '⏳ Executing 33 Tests...';
+  btn.innerText = '⏳ Executing Automated Test Suite...';
   const box = document.getElementById('testLabOutputBox');
-  box.innerText = 'Invoking Python Automated Test Runner (run_tests.py)...\nRunning unit, mock server, and integration assertions...\n';
+  box.innerText = 'Invoking Authenticated Python Automated Test Runner (run_tests.py)...\nRunning unit, mock server, and integration assertions...\n';
 
   try {
-    const res = await fetch('/api/run-tests', { method: 'POST' });
+    const res = await fetch('/api/run-tests', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer sentrix-admin-token-2026-auth'
+      }
+    });
     const data = await res.json();
     sfxSuccess();
     
@@ -1897,7 +1908,7 @@ document.getElementById('runTestLabBtn').addEventListener('click', async () => {
     box.innerText = 'Error running tests via API.';
   } finally {
     btn.disabled = false;
-    btn.innerText = '▶️ Re-Run 43 Automated Tests';
+    btn.innerText = '▶️ Re-Run Automated Tests';
   }
 });
 
@@ -1905,7 +1916,9 @@ document.getElementById('runTestLabBtn').addEventListener('click', async () => {
 document.getElementById('exportReportBtn').addEventListener('click', async () => {
   sfxClick();
   try {
-    const res = await fetch('/api/export-report');
+    const res = await fetch('/api/export-report', {
+      headers: { 'Authorization': 'Bearer sentrix-admin-token-2026-auth' }
+    });
     const data = await res.json();
     const str = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data, null, 2));
     const a = document.createElement('a');
@@ -1921,10 +1934,26 @@ document.getElementById('exportReportBtn').addEventListener('click', async () =>
 });
 
 // Export CSV Forensic Dossier
-document.getElementById('exportReportCsvBtn').addEventListener('click', () => {
+document.getElementById('exportReportCsvBtn').addEventListener('click', async () => {
   sfxClick();
-  window.location.href = '/api/export-report/csv';
-  showToast('Forensic Case CSV Dossier Download Initiated!', 'success');
+  try {
+    const res = await fetch('/api/export-report/csv', {
+      headers: { 'Authorization': 'Bearer sentrix-admin-token-2026-auth' }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sentrix_shield_forensic_report_${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    showToast('Forensic Case CSV Dossier Downloaded!', 'success');
+  } catch (e) {
+    showToast('Error downloading CSV report', 'error');
+  }
 });
 
 // Initial Ingestion Trigger

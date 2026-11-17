@@ -29,6 +29,7 @@ APPROVED_INTERNAL_IPS = {
 }
 
 EXTERNAL_ATTACKER_IP = "203.0.113.77"
+UNAUTHORIZED_EXTERNAL_IP = "203.0.113.77"
 NORMAL_ATTENDANCE_LIMIT = 250
 
 
@@ -38,8 +39,8 @@ NORMAL_ATTENDANCE_LIMIT = 250
 
 def detect_external_service_ingress():
     """Rule 1: Detect inbound service-identity usage from unwhitelisted external IP."""
-    hits = [l for l in AUTH_LOGS if l.get("ip") == EXTERNAL_ATTACKER_IP]
-    net_hits = [l for l in NETWORK_LOGS if l.get("src_ip") == EXTERNAL_ATTACKER_IP]
+    hits = [l for l in AUTH_LOGS if l.get("ip") == UNAUTHORIZED_EXTERNAL_IP]
+    net_hits = [l for l in NETWORK_LOGS if l.get("src_ip") == UNAUTHORIZED_EXTERNAL_IP]
     
     if hits:
         event_ids = sorted(list(set([l["event_id"] for l in hits] + [l["event_id"] for l in net_hits])))
@@ -56,7 +57,7 @@ def detect_external_service_ingress():
             "detection_rule": "RULE-AUTH-01: Ingress Service-Account Boundary Enforcement",
             "reason_for_flagging": (
                 f"Service identity 'svc_rollcall' authenticated via token rc-prod-01 from unrecognized "
-                f"external IP {EXTERNAL_ATTACKER_IP}. Routine daily connector authentications strictly originate "
+                f"external IP {UNAUTHORIZED_EXTERNAL_IP}. Routine daily connector authentications strictly originate "
                 "from internal subnet node 10.10.4.12 at approximately 02:01 IST."
             ),
             "confidence_classification": "CONFIRMED OBSERVATION",
@@ -104,7 +105,7 @@ def detect_bulk_learner_export():
 
 def detect_repeated_archive_download():
     """Rule 3: Detect multiple exfiltration downloads of sensitive cloud archive."""
-    downloads = [l for l in DATA_EXPORT_LOGS if l.get("action") == "object.download" and l.get("ip") == EXTERNAL_ATTACKER_IP]
+    downloads = [l for l in DATA_EXPORT_LOGS if l.get("action") == "object.download" and l.get("ip") == UNAUTHORIZED_EXTERNAL_IP]
     
     if len(downloads) >= 2:
         event_ids = [d["event_id"] for d in downloads]
@@ -122,7 +123,7 @@ def detect_repeated_archive_download():
             "detection_rule": "RULE-VAULT-03: Repeated Cloud Storage Download & Exfiltration Pattern",
             "reason_for_flagging": (
                 f"Archive 'learners-20261012.csv' (486,200 bytes) was downloaded TWICE (C003 at 03:21:03 and "
-                f"C004 at 03:24:48) by rollcall-prod to external host {EXTERNAL_ATTACKER_IP}, transferring {total_bytes} bytes."
+                f"C004 at 03:24:48) by rollcall-prod to external host {UNAUTHORIZED_EXTERNAL_IP}, transferring {total_bytes} bytes."
             ),
             "confidence_classification": "CONFIRMED OBSERVATION",
             "recommended_defensive_action": (
@@ -136,13 +137,13 @@ def detect_repeated_archive_download():
 
 def detect_config_harvesting():
     """Rule 4: Detect configuration-settings access correlated with subsequent API burst."""
-    config_reads = [l for l in CONFIG_ACCESS_LOGS if l.get("action") == "credential_config_read" and l.get("ip") == EXTERNAL_ATTACKER_IP]
+    config_reads = [l for l in CONFIG_ACCESS_LOGS if l.get("action") == "credential_config_read" and l.get("ip") == UNAUTHORIZED_EXTERNAL_IP]
     
     if config_reads:
         event_ids = [c["event_id"] for c in config_reads]
         return [{
             "finding_id": "FND-004",
-            "anomaly": "Integration Settings Read Correlated with API Burst",
+            "anomaly": "Integration Settings Read Correlated with API Activity",
             "severity": "CRITICAL",
             "heuristic_score": 96,
             "risk_score": 96,
@@ -150,15 +151,15 @@ def detect_config_harvesting():
             "source_evidence_file": "E11_Additional_Configuration_Audit.csv",
             "event_ids": event_ids,
             "event_id": event_ids[0],
-            "detection_rule": "RULE-CFG-04: Off-Hours Configuration Harvest Detection",
+            "detection_rule": "RULE-CFG-04: Off-Hours Configuration Read Detection",
             "reason_for_flagging": (
                 "Event CHG-882 records svc_rollcall reading integration-settings/rollcall-prod from external IP "
-                f"{EXTERNAL_ATTACKER_IP} at 03:16:35 IST, occurring seconds prior to mass learner query (R003) and export (R004)."
+                f"{UNAUTHORIZED_EXTERNAL_IP} at 03:16:35 IST, occurring seconds prior to mass learner query (R003) and export (R004). "
+                "Note: Log CHG-882 confirms configuration read; whether plaintext secrets were exposed remains unverified in evidence."
             ),
             "confidence_classification": "CONFIRMED OBSERVATION",
             "recommended_defensive_action": (
-                "Encrypt integration secrets in HashiCorp Vault; prohibit direct read of plaintext settings via API; "
-                "generate immediate high-priority SIEM alerts on configuration access from non-whitelisted IPs."
+                "Encrypt integration secrets in approved vault; alert on configuration access from non-whitelisted IPs."
             ),
             "policy_violation": "NS-SEC-04 Rule 1 (Credentials stored in approved secrets vault)"
         }]
@@ -240,7 +241,7 @@ def detect_ticket_exposure_hypothesis():
         "reason_for_flagging": (
             "Ticket HD-1058 recorded an IT Analyst attaching a configuration screenshot to a vendor ticket. "
             "FORENSIC UNKNOWN: The screenshot's actual image contents are not provided in the case evidence. "
-            "Whether it revealed plaintext secrets or was accessed by unauthorized parties remains UNVERIFIED."
+            "Whether it revealed secrets or was accessed by unauthorized parties remains UNVERIFIED and unknown."
         ),
         "confidence_classification": "UNKNOWN / REQUIRES FURTHER INVESTIGATION",
         "recommended_defensive_action": (
@@ -266,7 +267,7 @@ def detect_unverified_human_operator():
         "reason_for_flagging": (
             "While token authentication A011 proves that service account svc_rollcall was operated from external IP "
             "203.0.113.77, logs do not establish the physical identity of the human operator behind the keyboard. "
-            "Per E12, service-account events must not be treated as proof of physical human identity."
+            "Per E12, service-account events must not be treated as proof of physical human identity or labeled as a confirmed attacker."
         ),
         "confidence_classification": "UNKNOWN / REQUIRES FURTHER INVESTIGATION",
         "recommended_defensive_action": (

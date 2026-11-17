@@ -28,7 +28,7 @@ slides_data = [
             'Selected Track: DEFENSE (Preventive, Detective & Response Controls)',
             'Core Solution: Real-Time Anomaly Detection, Credential Lifecycle Management & Zero-Trust Defense',
             'Deliverables: One-Page Problem Statement + Complete Source Code + Demo Video + PPTX Deck',
-            'Evaluation Readiness: Complete Working Source Code + Local Hardened Simulation + 15-Category 43/43 Test Suite'
+            'Evaluation Readiness: Complete Working Source Code + Local Hardened Simulation + 20-Category 60/60 Test Suite'
         ]
     },
     {
@@ -67,10 +67,10 @@ slides_data = [
             '  [CONFIRMED] 486 KB export file downloaded twice from CampusVault repository (C003, C004).',
             '  [CONFIRMED] Service account rc-prod-01 lacked expiry, rotation schedule, and IP restrictions (INT-01).',
             'Strongly Supported Hypotheses:',
-            '  [HYPOTHESIS] Attacker obtained valid credential externally and exploited absence of network and role boundaries.',
+            '  [HYPOTHESIS] External party obtained valid credential externally and exploited absence of network and role boundaries.',
             'Forensic Unknowns (Explicitly not claimed):',
             '  [UNKNOWN] Exact physical identity of the human operator behind 203.0.113.77.',
-            '  [UNKNOWN] Whether ticket HD-1058 screenshot actually contained plaintext secrets (contents unverified in evidence).',
+            '  [UNKNOWN] Whether ticket HD-1058 screenshot actually revealed secrets (contents unverified in evidence).',
             '  [UNKNOWN] Whether downloaded learner records were transferred onward or published.'
         ]
     },
@@ -124,14 +124,14 @@ slides_data = [
         'subtitle': 'High-Performance, Lightweight, Zero-Dependency Architecture',
         'points': [
             'Backend Stack:',
-            '  * Python 3.12 + Flask API Server with RESTful JSON endpoints and CORS origin protection.',
-            '  * Custom Heuristic Anomaly Detection & Timeline Correlation engine.',
+            '  * Python 3.12 + Flask API Server with Bearer/API-Key Auth Middleware, RBAC decorators & CORS protection.',
+            '  * Custom Heuristic Anomaly Detection, Dynamic SHA-256 Ingestion & Timeline Correlation engine.',
             'Frontend Stack:',
             '  * Single-Page Reactive SOC Dashboard (HTML5, Modern CSS3 Grid/Flexbox, Vanilla ES6+ JavaScript).',
             '  * Cyberpunk dark theme with live radar sweep canvas, KPI cards, and modal inspectors.',
             'Local Simulation Suite (Hardened vs. Vulnerable):',
             '  * Mock API Server testing both role boundaries and isolated export record ceilings (100 record limit).',
-            '  * Automated verification test harness validating 45 distinct security assertions.'
+            '  * Automated verification test harness validating 60 distinct security assertions across 20 categories.'
         ]
     },
     {
@@ -146,7 +146,7 @@ slides_data = [
             '  [PASS] Invalid / revoked token denied -> HTTP 403 Forbidden',
             '  [PASS] ISOLATED EXPORT LIMIT: Bulk export > 100 blocked by record ceiling -> HTTP 400',
             '  [PASS] ISOLATED EXPORT LIMIT: Small export <= 100 records permitted for authorized role -> HTTP 200',
-            'Overall Test Suite: 100% PASS RATE (43/43 Tests Passed across all 15 Verification Categories).'
+            'Overall Test Suite: 100% PASS RATE (60/60 Tests Passed across all 20 Security & Evidence Categories).'
         ]
     },
     {
@@ -154,7 +154,7 @@ slides_data = [
         'subtitle': 'CRIMEATHON 26 Selection Round | Team SENTRIX',
         'points': [
             'Deliverable 1: One-Page Problem Statement (Markdown & Print-Ready PDF / HTML)',
-            'Deliverable 2: Complete Working Source Code (Flask API, Frontend Dashboard, 43/43 Test Suite)',
+            'Deliverable 2: Complete Working Source Code (Flask API with Bearer/Key Auth & RBAC, 60/60 Test Suite)',
             'Deliverable 3: Live Verification Demo & Video Walkthrough Guide',
             'Deliverable 4: Comprehensive Technical Slide Deck (PPTX)',
             '',
